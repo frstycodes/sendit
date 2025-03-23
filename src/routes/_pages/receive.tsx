@@ -9,9 +9,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
-import { bytesToString, getFileIcon, listen, listeners } from '@/lib/utils'
+import { bytesToString, getFileIcon, listeners } from '@/lib/utils'
 import { createFileRoute } from '@tanstack/react-router'
-import { Check, CircleCheck, EllipsisVertical, Trash } from 'lucide-react'
+import { Check, EllipsisVertical, Trash } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 

@@ -14,13 +14,10 @@ use iroh_docs::{
     store::Query,
     AuthorId, DocTicket,
 };
-use std::{borrow::Cow, fs, path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf, str::FromStr};
 use tracing::info;
 
-use iroh_blobs::{
-    export::ExportProgress,
-    store::{ExportFormat, ExportMode},
-};
+use iroh_blobs::{export::ExportProgress, store::ExportMode};
 use n0_future::stream::StreamExt;
 use quic_rpc::transport::flume::FlumeConnector;
 use tauri::{AppHandle, Emitter, Manager};
@@ -293,8 +290,6 @@ async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> R
     }
     Ok(())
 }
-
-async fn abort_downlaod(path: String) {}
 
 async fn setup(handle: AppHandle) -> Result<()> {
     // Data directory setup

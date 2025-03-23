@@ -1,27 +1,11 @@
-import React, { ReactNode } from 'react'
+import { createRouter, RouterProvider } from '@tanstack/react-router'
+import React from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import { ChevronLeft, ChevronRight, Minus, Square, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Toaster } from './components/ui/sonner'
+import { TooltipProvider } from './components/ui/tooltip'
 import { ThemeProvider } from './context/theme.context'
 import './index.css'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Toaster } from './components/ui/sonner'
-import {
-  createRouter,
-  defer,
-  RouterProvider,
-  useNavigate,
-  useRouter,
-} from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
-import { Button } from './components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from './components/ui/tooltip'
 
 const container = document.getElementById('root')
 

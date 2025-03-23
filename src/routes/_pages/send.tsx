@@ -1,35 +1,20 @@
-import { invoke } from '@tauri-apps/api/core'
-import { open } from '@tauri-apps/plugin-dialog'
-import { useEffect, useRef, useState } from 'react'
-import {
-  bytesToString,
-  cn,
-  copyText,
-  getFileIcon,
-  listeners,
-} from '../../lib/utils'
-import {
-  Download,
-  EllipsisVertical,
-  Plus,
-  Ticket,
-  Trash,
-  Trash2,
-} from 'lucide-react'
-import { Button } from '../../components/ui/button'
-import { toast } from 'sonner'
-import * as events from '../../config/events'
-import { AnimatePresence, motion } from 'motion/react'
-import { useDropzone } from 'react-dropzone'
-import { createFileRoute } from '@tanstack/react-router'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { api } from '@/api/tauri'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { api } from '@/api/tauri'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import * as events from '@/config/events'
+import { bytesToString, copyText, getFileIcon, listeners } from '@/lib/utils'
+import { createFileRoute } from '@tanstack/react-router'
+import { open } from '@tauri-apps/plugin-dialog'
+import { EllipsisVertical, Plus, Ticket, Trash, Trash2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 type File = events.UploadFileAdded
 
@@ -194,24 +179,5 @@ function File({ file: { size, name, path } }: FileProps) {
         </DropdownMenuContent>
       </DropdownMenu>
     </motion.div>
-  )
-}
-
-function Dropzone() {
-  const dropzone = useDropzone({})
-  console.log(dropzone.isDragAccept)
-  return (
-    <div
-      {...dropzone.getRootProps()}
-      className={cn(
-        'mt-5 flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-foreground/10 bg-foreground/5 text-muted-foreground transition-all',
-        dropzone.isDragAccept && 'border-emerald-500 bg-emerald-500/10',
-        dropzone.isDragActive && 'border-emerald-500 bg-emerald-500/10',
-      )}
-    >
-      <input {...dropzone.getInputProps()} />
-      <Download className='size-8' />
-      <p>Drag and drop files here</p>
-    </div>
   )
 }
