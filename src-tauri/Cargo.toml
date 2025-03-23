@@ -1,0 +1,63 @@
+[package]
+name = "send-it"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "tauri_send_me_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1.0.75"
+async-channel = "2.3.1"
+clap = { version = "4.4.10", features = ["derive"] }
+console = "0.15.7"
+derive_more = { version = "1.0.0", features = ["display", "from_str"] }
+futures-buffered = "0.2.4"
+futures-lite = "2.3.0"
+iroh-blobs = { version = "0.32", features = ["net_protocol", "rpc"] }
+iroh-io = "0.6"
+iroh = "0.32"
+num_cpus = "1.16.0"
+rand = "0.8.5"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
+walkdir = "2.4.0"
+data-encoding = "2.6.0"
+n0-future = "0.1.2"
+
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde_json = "1"
+zip = "2.2.3"
+zip-dir = "0.1.0"
+tauri-plugin-dialog = "2"
+iroh-docs = { version = "0.32.0", features = ["rpc"] }
+iroh-gossip = "0.32.0"
+iroh-node-util = "0.33.0"
+quic-rpc = "0.18.3"
+dirs-next = "2.0.0"
+file_icon_provider = "0.4.0"
+
+[dev-dependencies]
+duct = "0.13.6"
+nix = { version = "0.29", features = ["signal", "process"] }
+rand = "0.8.5"
+serde_json = "1.0.108"
+tempfile = "3.8.1"
+
+[patch.crates-io]
+iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
+iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "main" }
