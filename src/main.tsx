@@ -20,6 +20,12 @@ declare module '@tanstack/react-router' {
   }
 }
 
+const preventDefault = (e: Event) => e.preventDefault()
+// DISABLE RIGHT CLICK CONTEXT MENU
+document.addEventListener('contextmenu', preventDefault)
+// DISABLE KEYPRESS TO DISABLE RELOADS
+document.addEventListener('keydown', preventDefault)
+
 root.render(
   <React.StrictMode>
     <ThemeProvider defaultTheme='system'>
