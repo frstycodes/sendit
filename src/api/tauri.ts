@@ -32,8 +32,8 @@ export const api = {
    * Download files using a doc ticket.
    * @param ticket - The doc ticket to use for downloading.
    */
-  download: async (ticket: string): Promise<void> => {
-    return await invoke('download_file', { ticket })
+  download: (ticket: string): Promise<void> => {
+    return invoke('download_file', { ticket })
   },
   /**
    * Abort a download using a doc ticket.

@@ -24,35 +24,27 @@ console = "0.15.7"
 derive_more = { version = "1.0.0", features = ["display", "from_str"] }
 futures-buffered = "0.2.4"
 futures-lite = "2.3.0"
-iroh-blobs = { version = "0.32", features = ["net_protocol", "rpc"] }
 iroh-io = "0.6"
-iroh = "0.32"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
-walkdir = "2.4.0"
-data-encoding = "2.6.0"
 n0-future = "0.1.2"
 
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde_json = "1"
-zip = "2.2.3"
-zip-dir = "0.1.0"
 tauri-plugin-dialog = "2"
-iroh-docs = { version = "0.32.0", features = ["rpc"] }
-iroh-gossip = "0.32.0"
-iroh-node-util = "0.33.0"
-quic-rpc = "0.18.3"
 dirs-next = "2.0.0"
+iroh-blobs = { version = "0.34.0", features = ["net_protocol", "rpc"] }
+iroh = "0.34.0"
+iroh-gossip = "0.34.0"
+iroh-docs = { version = "0.34.0", features = ["rpc"] }
+quic-rpc = "0.19.0"
+tauri-plugin-clipboard-manager = "2"
 
 [dev-dependencies]
 duct = "0.13.6"
 nix = { version = "0.29", features = ["signal", "process"] }
 serde_json = "1.0.108"
 tempfile = "3.8.1"
-
-[patch.crates-io]
-iroh = { git = "https://github.com/n0-computer/iroh.git", branch = "main" }
-iroh-blobs = { git = "https://github.com/n0-computer/iroh-blobs.git", branch = "main" }

@@ -1,73 +1,57 @@
 import { api } from '@/api/tauri'
+import { AnimatedCheckMark } from '@/components/animated-checkmark'
+import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
-import { bytesToString, copyText, getFileIcon, listeners } from '@/lib/utils'
+import { listeners } from '@/lib/utils'
+import { AppState, UploadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
 import { open } from '@tauri-apps/plugin-dialog'
-import { EllipsisVertical, Plus, Ticket, Trash, Trash2 } from 'lucide-react'
+import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
-
-type File = events.UploadFileAdded
+import { useEffect, useState } from 'react'
+import { writeText } from '@tauri-apps/plugin-clipboard-manager'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 
 export const Route = createFileRoute('/_pages/send')({
   component: SendPage,
 })
 
-async function generateAndCopyTicket() {
-  try {
-    const ticket = await api.generateTicket()
-    copyText(ticket)
-  } catch (err) {
-    toast.error('Failed to generate ticket')
-    console.error(err)
-  }
-}
-
 function SendPage() {
-  const [files, setFiles] = useState<string[]>([])
-  const filesRecord = useRef<Record<string, File>>({})
+  const store = AppState.use(
+    'uploadQueue',
+    'addToUploadQueue',
+    'updateUploadQueueItemProgress',
+    'removeFromUploadQueue',
+  )
 
   useEffect(() => {
-    const controller = new AbortController()
-
-    listeners(
-      {
-        [events.UPLOAD_FILE_ADDED]: (event) => {
-          const file = event.payload as File
-          toast.loading('Importing file...', {
-            id: file.name,
-            description: file.path,
-          })
-          filesRecord.current[file.name] = file
-        },
-        [events.UPLOAD_FILE_COMPLETED]: (event) => {
-          const name = event.payload as events.UploadFileCompleted
-          toast.success('File Imported', { id: name, description: name })
-          setFiles((prev) => [...prev, name])
-        },
-
-        [events.UPLOAD_FILE_REMOVED]: (event) => {
-          const name = event.payload as events.UploadFileRemoved
-          delete filesRecord.current[name]
-          setFiles((prev) => prev.filter((file) => file !== name))
-        },
+    const unsub = listeners({
+      [events.UPLOAD_FILE_ADDED]: (event) => {
+        const item = event.payload as events.UploadFileAdded as UploadQueueItem
+        item.progress = 0
+        store.addToUploadQueue(item)
       },
-      controller.signal,
-    )
 
-    return () => {
-      controller.abort()
-    }
-  }, [files])
+      [events.UPLOAD_FILE_PROGRESS]: (event) => {
+        const file = event.payload as events.UploadFileProgress
+        store.updateUploadQueueItemProgress(file.path, file.progress)
+      },
+
+      [events.UPLOAD_FILE_COMPLETED]: (event) => {
+        const name = event.payload as events.UploadFileCompleted
+        store.updateUploadQueueItemProgress(name, 100)
+      },
+
+      [events.UPLOAD_FILE_REMOVED]: (event) => {
+        const name = event.payload as events.UploadFileRemoved
+        store.removeFromUploadQueue(name)
+      },
+    })
+
+    return unsub
+  }, [store.uploadQueue])
 
   async function handleAddFile() {
     const paths = await open({ multiple: true })
@@ -97,7 +81,7 @@ function SendPage() {
         <div className='flex flex-1 flex-col gap-1.5'>
           <AnimatePresence mode='popLayout'>
             <div>
-              {files.length === 0 && (
+              {store.uploadQueue.length === 0 && (
                 <>
                   <motion.p
                     layout
@@ -118,66 +102,57 @@ function SendPage() {
                 </>
               )}
             </div>
-            {files.map((path) => {
-              const file = filesRecord.current[path]
-              return <File key={path} file={file} />
+            {store.uploadQueue.map((item) => {
+              return (
+                <QueueItem
+                  key={item.path}
+                  item={item}
+                  doneLabel='Import complete'
+                  dropdownContent={
+                    <DropdownMenuItem
+                      onClick={() => api.removeFile(item.path)}
+                      className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
+                    >
+                      <Trash className='mr-2 h-4 w-4' />
+                      Delete
+                    </DropdownMenuItem>
+                  }
+                />
+              )
             })}
           </AnimatePresence>
         </div>
       </ScrollArea>
-      {files.length > 0 && (
-        <Button onClick={generateAndCopyTicket}>
-          <Ticket /> Copy Ticket
-        </Button>
-      )}
+      {store.uploadQueue.length > 0 && <CopyTicketButton />}
     </motion.div>
   )
 }
 
-type FileProps = {
-  file: File
-}
-function File({ file: { size, name, path } }: FileProps) {
-  const fileType = name.split('.').pop()?.toLowerCase() || ''
-  const icon = getFileIcon(fileType)
+function CopyTicketButton() {
+  const [copied, setCopied] = useState(false)
 
-  function removeFile() {
-    api.removeFile(path)
+  const copyTicket = async () => {
+    try {
+      const ticket = await api.generateTicket()
+      await writeText(ticket)
+      setCopied(true)
+    } catch (error) {
+      console.error('Failed to copy ticket:', error)
+    } finally {
+      setTimeout(() => setCopied(false), 1000)
+    }
   }
 
   return (
-    <motion.div
-      layoutId={name}
-      initial={{ scale: 0.9, y: -10 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0, x: -20000 }}
-      transition={{ type: 'spring', duration: 0.3 }}
-      className='flex items-center gap-2 rounded-sm bg-foreground/5 p-2 px-3 shadow-md'
-    >
-      <span className='text-xl'>{icon}</span>
-      <div className='truncate'>
-        <p className='font-xl truncate text-sm'>{name}</p>
-        <p className='truncate text-xs text-muted-foreground'>{path}</p>
-      </div>
-      <p className='ml-auto whitespace-nowrap text-xs text-muted-foreground'>
-        {bytesToString(size)}
-      </p>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant='ghost' className='p-0'>
-            <EllipsisVertical />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem
-            onClick={removeFile}
-            className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
-          >
-            <Trash className='mr-2 h-4 w-4' />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </motion.div>
+    <Button onClick={copyTicket}>
+      {copied ? (
+        <AnimatedCheckMark />
+      ) : (
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+          <Ticket />
+        </motion.div>
+      )}{' '}
+      Copy Ticket
+    </Button>
   )
 }

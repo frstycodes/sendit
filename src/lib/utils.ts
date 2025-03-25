@@ -25,17 +25,18 @@ export async function listen<T>(
 
 export function listeners(
   record: Partial<Record<EventName, EventCallback<any>>>,
-  signal?: AbortSignal,
-) {
+): () => void {
+  const controller = new AbortController()
+
   for (const [event, callback] of Object.entries(record)) {
     if (!callback) continue
-    listen(event, callback, { signal })
+    listen(event, callback, { signal: controller.signal })
+  }
+  return () => {
+    controller.abort()
   }
 }
 
-export function copyText(text: string) {
-  navigator.clipboard.writeText(text)
-}
 export function getFileIcon(fileType: string) {
   switch (fileType) {
     case 'pdf':
