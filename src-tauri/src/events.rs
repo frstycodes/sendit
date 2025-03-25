@@ -6,6 +6,7 @@ pub const DOWNLOAD_FILE_PROGRESS: &str = "DOWNLOAD_FILE_PROGRESS";
 pub const DOWNLOAD_FILE_COMPLETED: &str = "DOWNLOAD_FILE_COMPLETED";
 pub const DOWNLOAD_FILE_ABORTED: &str = "DOWNLOAD_FILE_ABORTED";
 pub const DOWNLOAD_FILE_EXISTS: &str = "DOWNLOAD_FILE_EXISTS";
+pub const DOWNLOAD_ALL_COMPLETE: &str = "DOWNLOAD_ALL_COMPLETE";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DownloadFileAdded {
