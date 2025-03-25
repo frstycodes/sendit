@@ -1,18 +1,16 @@
-import { api } from '@/api/tauri'
 import { bytesToString, getFileIcon } from '@/lib/utils'
 import { DownloadQueueItem, UploadQueueItem } from '@/state/appstate'
+import { EllipsisVertical } from 'lucide-react'
 import { motion } from 'motion/react'
 import { memo } from 'react'
+import { AnimatedCheckMark } from './animated-checkmark'
+import { ProgressBar } from './progress-bar'
+import { Button } from './ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { Button } from './ui/button'
-import { EllipsisVertical, Trash } from 'lucide-react'
-import { ProgressBar } from './progress-bar'
-import { AnimatedCheckMark } from './animated-checkmark'
 
 export type QueueItemProps = {
   item: UploadQueueItem | DownloadQueueItem

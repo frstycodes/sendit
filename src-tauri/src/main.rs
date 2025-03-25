@@ -15,7 +15,6 @@ use iroh_docs::{
     AuthorId, DocTicket,
 };
 use std::{fs, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::mpsc;
 use tracing::info;
 
 use iroh_blobs::get::db::DownloadProgress;
@@ -344,57 +343,6 @@ async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> R
     println!("Download finished");
     let _ = handle.emit(events::DOWNLOAD_ALL_COMPLETE, ());
     Ok(())
-}
-// Download event enum to represent different download stages
-#[derive(Debug)]
-pub enum DownloadEvent {
-    FileAdded {
-        name: String,
-        size: u64,
-    },
-    FileProgress {
-        name: String,
-        progress: f32,
-    },
-    FileCompleted {
-        name: String,
-        path: PathBuf,
-        size: u64,
-    },
-    DownloadError {
-        name: String,
-        error: String,
-    },
-}
-
-async fn handle_downloads(rx: mpsc::Receiver<DownloadEvent>) {
-    let mut rx = rx;
-    while let Some(event) = rx.recv().await {
-        match event {
-            DownloadEvent::FileAdded { name, size } => {
-                println!("File added: {} (size: {})", name, size);
-                // Update UI or send notification
-                //
-            }
-            DownloadEvent::FileProgress { name, progress } => {
-                println!("Download progress for {}: {}%", name, progress);
-                // Update progress bar
-            }
-            DownloadEvent::FileCompleted { name, path, size } => {
-                println!(
-                    "File downloaded: {} at {} (size: {})",
-                    name,
-                    path.display(),
-                    size
-                );
-                // Notify user of successful download
-            }
-            DownloadEvent::DownloadError { name, error } => {
-                eprintln!("Download error for {}: {}", name, error);
-                // Handle error (show to user, log, etc.)
-            }
-        }
-    }
 }
 
 async fn setup(handle: AppHandle) -> Result<()> {
