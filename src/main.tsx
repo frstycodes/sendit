@@ -23,8 +23,17 @@ declare module '@tanstack/react-router' {
 const preventDefault = (e: Event) => e.preventDefault()
 // DISABLE RIGHT CLICK CONTEXT MENU
 document.addEventListener('contextmenu', preventDefault)
-// DISABLE KEYPRESS TO DISABLE RELOADS
-document.addEventListener('keydown', preventDefault)
+
+// DISABLE RELOADS
+document.addEventListener('keydown', (event) => {
+  // Prevent F5 or Ctrl+R (Windows/Linux) and Command+R (Mac) from refreshing the page
+  const shouldBlock =
+    event.key === 'F5' ||
+    (event.ctrlKey && event.key === 'r') ||
+    (event.metaKey && event.key === 'r')
+
+  if (shouldBlock) event.preventDefault()
+})
 
 root.render(
   <React.StrictMode>
