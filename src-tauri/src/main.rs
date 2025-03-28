@@ -186,16 +186,6 @@ async fn generate_ticket(state: State<'_>) -> Result<String, String> {
 
 #[tauri::command]
 async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> Result<(), String> {
-    let data_dir = dirs_next::download_dir()
-        .ok_or("Download directory not found")?
-        .join(".sendit-recv");
-
-    let iroh = Arc::new(
-        iroh::Iroh::new(data_dir)
-            .await
-            .map_err(|e| format!("Failed to initialize iroh: {}", e))?,
-    );
-
     let ticket =
         DocTicket::from_str(&ticket).map_err(|e| format!("Failed to parse ticket: {}", e))?;
 
@@ -208,12 +198,7 @@ async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> R
             .map_err(|e| format!("Failed to import file: {}", e))?,
     );
 
-    let export_dir = match dirs_next::download_dir() {
-        Some(d) => d.join("sendit"),
-        None => {
-            return Err("Download directory not found".into());
-        }
-    };
+    let export_dir = utils::get_download_dir(&handle)?;
 
     let mut entries = doc
         .get_many(Query::all())
@@ -223,14 +208,20 @@ async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> R
     // Create a vector to hold download tasks
     let mut download_tasks = Vec::new();
 
+    let iroh = Arc::new(state.iroh().to_owned());
+    let handle = Arc::new(handle);
+    let nodes = Arc::new(ticket.nodes);
+
     while let Some(entry) = entries.next().await {
         let entry = entry.map_err(|e| format!("Failed to get entry: {}", e))?;
 
         // Clone Arc references
         let iroh = Arc::clone(&iroh);
         let doc = Arc::clone(&doc);
-        let ticket = ticket.clone();
-        let handle = handle.clone();
+        let handle = Arc::clone(&handle);
+        let nodes = Arc::clone(&nodes);
+        // let handle = handle.clone();
+
         let export_dir = export_dir.clone();
 
         // Spawn a task for each file download
@@ -256,7 +247,7 @@ async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> R
 
             let mut r = iroh
                 .blobs
-                .download(entry.content_hash(), ticket.nodes[0].clone())
+                .download(entry.content_hash(), nodes[0].clone())
                 .await
                 .map_err(|e| format!("Failed to download file: {}", e))?;
 
@@ -346,11 +337,8 @@ async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> R
 }
 
 async fn setup(handle: AppHandle) -> Result<()> {
-    // Data directory setup
-    // let data_dir = handle.path().app_data_dir()?.join(".temp");
-    let data_dir = dirs_next::download_dir()
-        .ok_or(anyhow::anyhow!("Failed to get download directory"))?
-        .join(".sendit-temp");
+    let data_dir = handle.path().temp_dir()?.join(".sendit");
+
     fs::create_dir_all(&data_dir)?;
 
     // Initialize Iroh

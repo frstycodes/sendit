@@ -3,6 +3,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use tauri::{AppHandle, Manager};
+
 pub fn file_name_from_path(path: &PathBuf) -> Result<String, String> {
     let name = path
         .file_name()
@@ -18,6 +20,15 @@ pub fn file_name_from_key(key: &[u8]) -> String {
         name.remove(name.len() - 1);
     }
     name
+}
+
+pub fn get_download_dir(handle: &AppHandle) -> Result<PathBuf, String> {
+    let dir = handle
+        .path()
+        .download_dir()
+        .map_err(|_| "Failed to get download directory")?
+        .join("sendit");
+    Ok(dir)
 }
 
 pub struct Debouncer {
