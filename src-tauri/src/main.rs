@@ -386,12 +386,12 @@ async fn download_file(
         }
     }
 
-    let _out = blobs
+    blobs
         .export(ticket.hash(), dest, ExportFormat::Blob, ExportMode::Copy)
         .await
         .map_err(|e| format!("Error exporting file: {}", e))?
-        .await
         .finish()
+        .await
         .map_err(|e| format!("Error finishing export: {}", e))?;
 
     println!("Exported file to: {}", file.name);
