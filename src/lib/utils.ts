@@ -11,6 +11,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function throttle<F extends (...args: any[]) => void>(
+  fn: F,
+  delay: number,
+): F {
+  let isThrottled = false
+  let savedArgs: Parameters<F> | null = null
+
+  function wrapper(this: any, ...args: Parameters<F>) {
+    if (isThrottled) {
+      savedArgs = args
+      return
+    }
+
+    fn.apply(this, args)
+    isThrottled = true
+
+    setTimeout(() => {
+      isThrottled = false
+      if (savedArgs) {
+        wrapper.apply(this, savedArgs)
+        savedArgs = null
+      }
+    }, delay)
+  }
+
+  return wrapper as F
+}
+
 export async function listen<T>(
   event: EventName,
   callback: EventCallback<NoInfer<T>>,

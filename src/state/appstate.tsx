@@ -5,6 +5,7 @@ export type DownloadQueueItem = {
   name: string
   size: number
   progress: number
+  speed: number
 }
 
 export type UploadQueueItem = DownloadQueueItem & {
@@ -27,7 +28,11 @@ type AppState = {
   removeFromUploadQueue: (fileName: string) => void
 
   updateUploadQueueItemProgress: (path: string, progress: number) => void
-  updateDownloadQueueItemProgress: (fileName: string, progress: number) => void
+  updateDownloadQueueItemProgress: (
+    fileName: string,
+    progress: number,
+    speed: number,
+  ) => void
 
   clearDownloadQueue: () => void
 }
@@ -70,10 +75,14 @@ const store = create<AppState>((set) => ({
       ),
     })),
 
-  updateDownloadQueueItemProgress: (fileName: string, progress: number) =>
+  updateDownloadQueueItemProgress: (
+    fileName: string,
+    progress: number,
+    speed: number,
+  ) =>
     set((state) => ({
       downloadQueue: state.downloadQueue.map((file) =>
-        file.name === fileName ? { ...file, progress } : file,
+        file.name === fileName ? { ...file, progress, speed } : file,
       ),
     })),
 
