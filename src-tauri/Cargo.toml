@@ -37,8 +37,6 @@ serde_json = "1"
 tauri-plugin-dialog = "2"
 iroh-blobs = { version = "0.34.0", features = ["net_protocol", "rpc"] }
 iroh = "0.34.0"
-iroh-gossip = "0.34.0"
-iroh-docs = { version = "0.34.0", features = ["rpc"] }
 quic-rpc = "0.19.0"
 tauri-plugin-clipboard-manager = "2"
 
