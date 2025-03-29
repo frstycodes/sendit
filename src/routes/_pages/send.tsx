@@ -51,7 +51,7 @@ function SendPage() {
     })
 
     return unsub
-  }, [store.uploadQueue])
+  }, [])
 
   async function handleAddFile() {
     const paths = await open({ multiple: true })
@@ -67,7 +67,7 @@ function SendPage() {
       <div className='flex items-center justify-between gap-2'>
         <p className='text-xl font-bold'>Added Files</p>
         <Button
-          onClick={api.removeAllFiles}
+          onClick={() => api.removeAllFiles().catch(console.error)}
           variant='destructive'
           className='ml-auto h-7 gap-2 px-3 text-xs'
         >
@@ -110,7 +110,14 @@ function SendPage() {
                   doneLabel='Import complete'
                   dropdownContent={
                     <DropdownMenuItem
-                      onClick={() => api.removeFile(item.path)}
+                      onClick={() => {
+                        api
+                          .removeFile(item.path)
+                          .then(() => {
+                            console.log('File removed successfully')
+                          })
+                          .catch((err) => console.log(err))
+                      }}
                       className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
                     >
                       <Trash className='mr-2 h-4 w-4' />

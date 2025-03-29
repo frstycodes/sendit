@@ -66,7 +66,9 @@ function Internal__QueueItem({
         )}
       </div>
 
-      {progress < 100 && <ProgressBar progress={progress} />}
+      {progress < 100 && (
+        <ProgressBar showPercentage progress={progress} speed={item.speed} />
+      )}
     </motion.div>
   )
 }

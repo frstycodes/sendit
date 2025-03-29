@@ -20,7 +20,11 @@ export const api = {
    * @param path - The path to remove all files from.
    */
   removeAllFiles: async (): Promise<void> => {
-    return await invoke('remove_all_files')
+    try {
+      await invoke('remove_all_files', {})
+    } catch (err) {
+      console.error(err)
+    }
   },
   /**
    * Generate a doc ticket for a file.
@@ -33,7 +37,7 @@ export const api = {
    * @param ticket - The doc ticket to use for downloading.
    */
   download: (ticket: string): Promise<void> => {
-    return invoke('download_file', { ticket })
+    return invoke('download', { ticket })
   },
   /**
    * Abort a download using a doc ticket.

@@ -4,6 +4,7 @@ use serde::Serialize;
 pub const DOWNLOAD_FILE_ADDED: &str = "DOWNLOAD_FILE_ADDED";
 pub const DOWNLOAD_FILE_PROGRESS: &str = "DOWNLOAD_FILE_PROGRESS";
 pub const DOWNLOAD_FILE_COMPLETED: &str = "DOWNLOAD_FILE_COMPLETED";
+pub const DOWNLOAD_FILE_ERROR: &str = "DOWNLOAD_FILE_ERROR";
 // pub const DOWNLOAD_FILE_ABORTED: &str = "DOWNLOAD_FILE_ABORTED";
 // pub const DOWNLOAD_FILE_EXISTS: &str = "DOWNLOAD_FILE_EXISTS";
 pub const DOWNLOAD_ALL_COMPLETE: &str = "DOWNLOAD_ALL_COMPLETE";
@@ -18,6 +19,7 @@ pub struct DownloadFileAdded {
 pub struct DownloadFileProgress {
     pub name: String,
     pub progress: f32,
+    pub speed: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,6 +33,12 @@ pub struct DownloadFileAborted {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DownloadFileExists(pub String);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DownloadFileError {
+    pub name: String,
+    pub error: String,
+}
 
 // UPLOAD
 pub const UPLOAD_FILE_ADDED: &str = "UPLOAD_FILE_ADDED";

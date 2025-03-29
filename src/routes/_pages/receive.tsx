@@ -10,6 +10,7 @@ import { AppState, DownloadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
 import { motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/receive')({
   component: ReceivePage,
@@ -34,17 +35,26 @@ function ReceivePage() {
       },
 
       [events.DOWNLOAD_FILE_PROGRESS]: (ev) => {
-        let { name, progress } = ev.payload as events.DownloadFileProgress
-        store.updateDownloadQueueItemProgress(name, progress)
+        let { name, progress, speed } =
+          ev.payload as events.DownloadFileProgress
+        store.updateDownloadQueueItemProgress(name, progress, speed)
       },
 
       [events.DOWNLOAD_FILE_COMPLETED]: (ev) => {
         let name = ev.payload as events.DownloadFileCompleted
-        store.updateDownloadQueueItemProgress(name, 100)
+        store.updateDownloadQueueItemProgress(name, 100, 0)
       },
 
       [events.DOWNLOAD_ALL_COMPLETE]: () => {
         AppState.set({ isDownloading: false })
+      },
+
+      [events.DOWNLOAD_FILE_ERROR]: (ev) => {
+        let { name, error } = ev.payload as events.DownloadFileError
+        store.removeFromDownloadQueue(name)
+        toast.error(error, {
+          description: name,
+        })
       },
     })
     return unsub
