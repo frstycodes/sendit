@@ -14,14 +14,6 @@ pub fn file_name_from_path(path: &PathBuf) -> Result<String, String> {
     Ok(name)
 }
 
-pub fn file_name_from_key(key: &[u8]) -> String {
-    let mut name = String::from_utf8_lossy(key).to_string();
-    if name.len() > 1 {
-        name.remove(name.len() - 1);
-    }
-    name
-}
-
 pub fn get_download_dir(handle: &AppHandle) -> Result<PathBuf, String> {
     let dir = handle
         .path()

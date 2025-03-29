@@ -6,40 +6,48 @@ mod utils;
 
 use anyhow::Result;
 
-use iroh_docs::{
-    rpc::{
-        client::docs::{Doc, ImportProgress, ShareMode},
-        AddrInfoOptions,
-    },
-    store::Query,
-    AuthorId, DocTicket,
+use iroh::BlobsClient;
+use std::{
+    fs,
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
 };
-use std::{fs, path::PathBuf, str::FromStr, sync::Arc, time::Duration};
+use tokio::sync::{Mutex, MutexGuard};
 use tracing::info;
 
-use iroh_blobs::get::db::DownloadProgress;
-use iroh_blobs::store::ExportMode;
+use iroh_blobs::{
+    get::db::DownloadProgress, provider::AddProgress, store::ExportFormat, ticket::BlobTicket,
+    BlobFormat, Hash,
+};
+use iroh_blobs::{rpc::client::blobs::WrapOption, store::ExportMode, util::SetTagOption};
 use n0_future::stream::StreamExt;
-use quic_rpc::transport::flume::FlumeConnector;
 use tauri::{AppHandle, Emitter, Manager};
 
-type StateDoc =
-    Doc<FlumeConnector<iroh_docs::rpc::proto::Response, iroh_docs::rpc::proto::Request>>;
+mod files;
 
 type State<'a> = tauri::State<'a, AppState>;
+
 pub struct AppState {
     iroh: iroh::Iroh,
-    author: AuthorId,
-    doc: StateDoc,
+    files: Mutex<files::Files>,
 }
 
 impl AppState {
-    fn new(iroh: iroh::Iroh, author: AuthorId, doc: StateDoc) -> Self {
-        Self { iroh, author, doc }
+    fn new(iroh: iroh::Iroh) -> Self {
+        Self {
+            iroh,
+            files: Mutex::new(files::Files::new()),
+        }
     }
 
     fn iroh(&self) -> &iroh::Iroh {
         &self.iroh
+    }
+
+    async fn files(&self) -> MutexGuard<'_, files::Files> {
+        self.files.lock().await
     }
 }
 
@@ -64,36 +72,31 @@ async fn add_file(
 
     let file_name = utils::file_name_from_path(&path)?;
 
-    let key = iroh_blobs::util::fs::path_to_key(file_name.clone(), None, None)
-        .map_err(|e| format!("Failed to generate key: {:?}", e))?;
+    let mut files = state.files().await;
 
-    let possible_entry = state
-        .doc
-        .get_exact(state.author.clone(), key.clone(), false)
-        .await
-        .map_err(|e| format!("Failed to get exact entry: {:?}", e))?;
-
-    if possible_entry.is_some() {
+    if files.has_file(&file_name) {
         return Err(format!("Duplicate file names not allowed.",));
     }
 
     let mut r = state
-        .doc
-        .import_file(state.author, key, &path, true)
+        .iroh()
+        .blobs
+        .add_from_path(path.clone(), true, SetTagOption::Auto, WrapOption::NoWrap)
         .await
-        .map_err(|e| format!("Failed to import file: {:?}", e))?;
+        .map_err(|e| format!("Failed to add file: {:?}", e))?;
 
-    use ImportProgress as IP;
     let mut size: u64 = 0;
     let mut debouncer = utils::Debouncer::new(Duration::from_millis(32));
+
+    let mut hash: Hash = Hash::EMPTY;
 
     while let Some(progress) = r.next().await {
         match progress {
             Ok(p) => match p {
-                IP::Found {
+                AddProgress::Found {
                     size: file_size, ..
                 } => {
-                    println!("Started uploading file");
+                    println!("Found file: {}", file_name);
                     size = file_size;
                     let payload = events::UploadFileAdded {
                         name: file_name.clone(),
@@ -102,7 +105,7 @@ async fn add_file(
                     };
                     let _ = handle.emit(events::UPLOAD_FILE_ADDED, payload);
                 }
-                IP::Progress { offset, .. } => {
+                AddProgress::Progress { offset, .. } => {
                     if debouncer.is_free() {
                         let progress_percent = (offset as f32 / size as f32) * 100.0;
                         println!("Progress: {}", progress_percent);
@@ -113,15 +116,16 @@ async fn add_file(
                         let _ = handle.emit(events::UPLOAD_FILE_PROGRESS, payload);
                     }
                 }
-                IP::IngestDone { .. } => {
+                AddProgress::Done { hash: _hash, .. } => {
+                    hash = _hash;
                     println!("File uploaded: {}", original_path);
                     let payload = events::UploadFileCompleted(file_name.clone());
                     let _ = handle.emit(events::UPLOAD_FILE_COMPLETED, payload);
                 }
-                IP::Abort { .. } => {
+                AddProgress::Abort { .. } => {
                     info!("Upload aborted: {}", original_path);
                 }
-                IP::AllDone { .. } => {
+                AddProgress::AllDone { .. } => {
                     break;
                 }
             },
@@ -130,224 +134,276 @@ async fn add_file(
             }
         }
     }
+
+    let ticket = BlobTicket::new(state.iroh().node_addr.clone(), hash, BlobFormat::Raw)
+        .map_err(|e| format!("Failed to create ticket: {}", e))?;
+
+    println!("Ticket created: {}", ticket);
+
+    files.add_file(file_name, size, ticket);
     Ok(())
 }
+
 #[tauri::command]
 async fn remove_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(), String> {
     let path = PathBuf::from(path);
     let name = utils::file_name_from_path(&path)?;
 
-    let key = iroh_blobs::util::fs::path_to_key(name.clone(), None, None)
-        .map_err(|e| format!("Failed to generate key: {}", e))?;
+    internal_remove_file(&state, &name, &handle).await?;
+    Ok(())
+}
 
-    let _deleted = state
-        .doc
-        .del(state.author, key)
+async fn internal_remove_file(
+    state: &State<'_>,
+    name: &str,
+    handle: &AppHandle,
+) -> Result<(), String> {
+    let mut files = state.files().await;
+    let file = files
+        .get(&name)
+        .ok_or_else(|| format!("File not found: {}", name))?;
+
+    let hash = file.ticket.hash();
+
+    state
+        .iroh()
+        .blobs
+        .delete_blob(hash)
         .await
-        .map_err(|e| format!("Failed to delete file: {}", e))?;
+        .map_err(|e| format!("Failed to delete blob: {}", e))?;
 
-    let _ = handle.emit(events::UPLOAD_FILE_REMOVED, events::UploadFileRemoved(name));
+    files.remove_file(&name);
+    let _ = handle.emit(
+        events::UPLOAD_FILE_REMOVED,
+        events::UploadFileRemoved(name.to_owned()),
+    );
 
     Ok(())
 }
 
 #[tauri::command]
 async fn remove_all_files(state: State<'_>, handle: AppHandle) -> Result<(), String> {
-    let mut entries = state
-        .doc
-        .get_many(Query::all())
-        .await
-        .map_err(|e| format!("Failed to get documents: {:?}", e))?;
+    let mut files = state.files().await;
 
-    while let Some(entry) = entries.next().await {
-        let entry = entry.map_err(|e| format!("Failed to get entry: {:?}", e))?;
-        let key = entry.key().to_vec();
+    for (_, file) in files.entries() {
+        let hash = file.ticket.hash();
+        println!("File {} removed successfully", hash);
         state
-            .doc
-            .del(state.author, key.clone())
+            .iroh()
+            .blobs
+            .delete_blob(hash)
             .await
-            .map_err(|e| format!("Failed to delete entry: {:?}", e))?;
+            .map_err(|e| format!("Failed to delete blob: {}", e))?;
 
-        let name = utils::file_name_from_key(&key);
-        let _ = handle.emit(events::UPLOAD_FILE_REMOVED, events::UploadFileRemoved(name));
+        let _ = handle.emit(
+            events::UPLOAD_FILE_REMOVED,
+            events::UploadFileRemoved(file.name.clone()),
+        );
+
+        println!("Blob {} removed successfully", hash);
     }
+
+    files.clear();
+
+    println!("All files removed successfully");
+
     Ok(())
 }
 
 #[tauri::command]
 async fn generate_ticket(state: State<'_>) -> Result<String, String> {
-    let ticket = state
-        .doc
-        .share(ShareMode::Read, AddrInfoOptions::default())
+    let files = state.files().await;
+    let header_str = files.to_string();
+
+    let res = state
+        .iroh()
+        .blobs
+        .add_bytes(header_str)
         .await
-        .map_err(|e| format!("Failed to generate ticket: {}", e))?;
+        .map_err(|e| format!("Failed to add header file: {}", e))?;
+
+    let ticket = BlobTicket::new(state.iroh().node_addr.clone(), res.hash, res.format)
+        .map_err(|e| format!("Failed to create ticket: {}", e))?;
+
     Ok(ticket.to_string())
 }
 
 #[tauri::command]
-async fn download_file(state: State<'_>, ticket: String, handle: AppHandle) -> Result<(), String> {
-    let ticket =
-        DocTicket::from_str(&ticket).map_err(|e| format!("Failed to parse ticket: {}", e))?;
-
-    let doc = Arc::new(
-        state
-            .iroh()
-            .docs
-            .import(ticket.clone())
-            .await
-            .map_err(|e| format!("Failed to import file: {}", e))?,
-    );
-
-    let export_dir = utils::get_download_dir(&handle)?;
-
-    let mut entries = doc
-        .get_many(Query::all())
-        .await
-        .map_err(|e| format!("Failed to get entries: {}", e))?;
-
-    // Create a vector to hold download tasks
-    let mut download_tasks = Vec::new();
-
-    let iroh = Arc::new(state.iroh().to_owned());
+async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result<(), String> {
     let handle = Arc::new(handle);
-    let nodes = Arc::new(ticket.nodes);
 
-    while let Some(entry) = entries.next().await {
-        let entry = entry.map_err(|e| format!("Failed to get entry: {}", e))?;
+    let ticket =
+        BlobTicket::from_str(&ticket).map_err(|e| format!("Failed to parse ticket: {}", e))?;
 
-        // Clone Arc references
-        let iroh = Arc::clone(&iroh);
-        let doc = Arc::clone(&doc);
+    let blobs = Arc::new(state.iroh().blobs.clone());
+
+    blobs
+        .download(ticket.hash(), ticket.node_addr().clone())
+        .await
+        .map_err(|e| format!("Failed to download header file: {}", e))?
+        .finish()
+        .await
+        .map_err(|e| format!("Failed to finish downloading header file: {}", e))?;
+
+    let bytes = blobs
+        .read_to_bytes(ticket.hash())
+        .await
+        .map_err(|e| format!("Failed to read bytes: {}", e))?;
+
+    let s = String::from_utf8(bytes.to_vec())
+        .map_err(|e| format!("Failed to convert bytes to string: {}", e))?;
+
+    let mut tasks = Vec::new();
+    let export_dir = Arc::new(utils::get_download_dir(&handle)?);
+
+    let lines = s.lines();
+
+    for line in lines {
+        let parts: Vec<&str> = line.split("\0").collect();
+
+        if parts.len() != 3 {
+            continue;
+        };
+
+        let name = parts[0].to_owned();
+        let size: u64 = parts[1]
+            .parse()
+            .map_err(|e| format!("Failed to parse file size: {}", e))?;
+
+        let ticket: BlobTicket = parts[2]
+            .parse()
+            .map_err(|e| format!("Failed to parse file ticket: {}", e))?;
+
+        let file = files::File {
+            name: name.clone(),
+            size: size.clone(),
+            ticket,
+        };
+
+        // Emit event to notify UI about new download
+        let payload = events::DownloadFileAdded { name, size };
+        let _ = handle.clone().emit(events::DOWNLOAD_FILE_ADDED, payload);
+
+        let blobs = Arc::clone(&blobs);
+        let export_dir = Arc::clone(&export_dir);
         let handle = Arc::clone(&handle);
-        let nodes = Arc::clone(&nodes);
-        // let handle = handle.clone();
 
-        let export_dir = export_dir.clone();
-
-        // Spawn a task for each file download
         let task = tokio::spawn(async move {
-            let name = utils::file_name_from_key(entry.key());
-            let mut dest = export_dir.clone().join(name.clone());
-            println!("Exporting {}", dest.display());
-
-            while dest.exists() {
-                match dest.extension() {
-                    Some(ext) => {
-                        let ext = ext.to_str().ok_or("Failed to get extension")?;
-                        dest.set_extension(format!("copy.{}", ext));
-                    }
-                    None => {
-                        let file_name = utils::file_name_from_path(&dest)?;
-                        dest.set_file_name(format!("{}-copy", file_name));
-                    }
-                }
-            }
-
-            let name = utils::file_name_from_path(&dest)?;
-
-            let mut r = iroh
-                .blobs
-                .download(entry.content_hash(), nodes[0].clone())
-                .await
-                .map_err(|e| format!("Failed to download file: {}", e))?;
-
-            let mut size: u64 = 0;
-            use DownloadProgress as DP;
-            let mut debouncer = utils::Debouncer::new(Duration::from_millis(10));
-
-            while let Some(progress) = r.next().await {
-                match progress {
-                    Ok(p) => match p {
-                        DP::FoundLocal { size: s, .. } => {
-                            println!("Found Local: {}", name);
-                            size = s.value();
-                            let payload = events::DownloadFileAdded {
-                                name: name.clone(),
-                                size: size.clone(),
-                            };
-
-                            let _ = handle.emit(events::DOWNLOAD_FILE_ADDED, payload);
-                        }
-                        DP::Found { size: s, id, .. } => {
-                            println!("Found: {}", id);
-                            size = s;
-                            let payload = events::DownloadFileAdded {
-                                name: name.clone(),
-                                size: size.clone(),
-                            };
-
-                            let _ = handle.emit(events::DOWNLOAD_FILE_ADDED, payload);
-                        }
-                        DP::Progress { offset, .. } => {
-                            if debouncer.is_free() {
-                                let percentage = (offset as f32 / size as f32) * 100.0;
-                                let payload = events::DownloadFileProgress {
-                                    name: name.clone(),
-                                    progress: percentage,
-                                };
-                                let _ = handle.emit(events::DOWNLOAD_FILE_PROGRESS, payload);
-                            }
-                        }
-                        DP::AllDone { .. } => {
-                            println!("All Done: {}", name);
-                            let _ = handle.emit(
-                                events::DOWNLOAD_FILE_COMPLETED,
-                                events::DownloadFileCompleted(name.clone()),
-                            );
-                            break;
-                        }
-
-                        DP::Abort(err) => {
-                            println!("Download aborted: {:?}", err);
-                        }
-
-                        e => println!("Unhandled download event: {:?}", e),
-                    },
-
-                    Err(e) => println!("Error: {}", e),
-                }
-            }
-
-            let out = doc
-                .export_file(entry, dest, ExportMode::Copy)
-                .await
-                .map_err(|e| format!("Error exporting file: {}", e))?
-                .finish()
-                .await
-                .map_err(|e| format!("Error finishing export: {}", e))?;
-
-            println!("Path: {}, size: {}", out.path.display(), out.size);
-
-            Ok::<(), String>(())
+            let _ = download_file(&blobs, file, &handle, &export_dir).await;
         });
 
-        download_tasks.push(task);
+        tasks.push(task);
     }
 
-    // Wait for all download tasks to complete
-    for task in download_tasks {
-        let _ = task
-            .await
-            .map_err(|e| format!("Download task failed: {}", e))?;
+    for task in tasks {
+        task.await.map_err(|e| format!("Task failed: {}", e))?;
     }
 
-    println!("Download finished");
     let _ = handle.emit(events::DOWNLOAD_ALL_COMPLETE, ());
+
+    print!("{}", s);
+
+    Ok(())
+}
+
+async fn download_file(
+    blobs: &BlobsClient,
+    file: files::File,
+    handle: &AppHandle,
+    export_dir: &PathBuf,
+) -> Result<(), String> {
+    let mut size: u64 = 0;
+    use DownloadProgress as DP;
+    let mut debouncer = utils::Debouncer::new(Duration::from_millis(10));
+    let ticket = &file.ticket;
+
+    let dest = export_dir.join(file.name.clone());
+
+    if dest.exists() {
+        let _ = handle.emit(
+            events::DOWNLOAD_FILE_ERROR,
+            events::DownloadFileError {
+                name: file.name.clone(),
+                error: "File already exists".to_string(),
+            },
+        );
+        return Err("File already exists".to_string());
+    }
+
+    let mut r = blobs
+        .download(ticket.hash(), ticket.node_addr().clone())
+        .await
+        .map_err(|e| format!("Failed to download file: {}", e))?;
+
+    let mut last_offset = 0;
+    let mut timestamp = Instant::now();
+
+    while let Some(progress) = r.next().await {
+        match progress {
+            Ok(p) => match p {
+                DP::FoundLocal { size: s, .. } => {
+                    println!("Found Local: {}", file.name.clone());
+                    size = s.value();
+                }
+                DP::Found { size: s, id, .. } => {
+                    println!("Found: {}", id);
+                    size = s;
+                }
+                DP::Progress { offset, .. } => {
+                    if debouncer.is_free() {
+                        let speed =
+                            (offset - last_offset) as f32 / timestamp.elapsed().as_micros() as f32;
+
+                        timestamp = Instant::now();
+                        last_offset = offset;
+
+                        let percentage = (offset as f32 / size as f32) * 100.0;
+                        let payload = events::DownloadFileProgress {
+                            name: file.name.clone(),
+                            progress: percentage,
+                            speed,
+                        };
+                        let _ = handle.emit(events::DOWNLOAD_FILE_PROGRESS, payload);
+                    }
+                }
+                DP::AllDone(..) => {
+                    println!("All Done: {}", file.name);
+                    let _ = handle.emit(
+                        events::DOWNLOAD_FILE_COMPLETED,
+                        events::DownloadFileCompleted(file.name.clone()),
+                    );
+                    break;
+                }
+
+                DP::Abort(err) => {
+                    println!("Download aborted: {:?}", err);
+                }
+
+                e => println!("Unhandled download event: {:?}", e),
+            },
+
+            Err(e) => println!("Error: {}", e),
+        }
+    }
+
+    let _out = blobs
+        .export(ticket.hash(), dest, ExportFormat::Blob, ExportMode::Copy)
+        .await
+        .map_err(|e| format!("Error exporting file: {}", e))?
+        .await
+        .finish()
+        .map_err(|e| format!("Error finishing export: {}", e))?;
+
+    println!("Exported file to: {}", file.name);
     Ok(())
 }
 
 async fn setup(handle: AppHandle) -> Result<()> {
     let data_dir = handle.path().temp_dir()?.join(".sendit");
-
     fs::create_dir_all(&data_dir)?;
 
-    // Initialize Iroh
     let iroh = iroh::Iroh::new(data_dir).await?;
-
-    let author = iroh.docs.authors().create().await?;
-    let doc = iroh.docs.create().await?;
-
-    handle.manage(AppState::new(iroh, author, doc));
+    handle.manage(AppState::new(iroh));
 
     Ok(())
 }
@@ -377,8 +433,8 @@ fn main() {
             add_file,
             remove_file,
             remove_all_files,
+            download,
             generate_ticket,
-            download_file,
         ])
         .run(tauri::generate_context!())
         .expect("Error while running tauri application");
