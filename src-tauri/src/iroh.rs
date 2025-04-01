@@ -46,7 +46,7 @@ impl Iroh {
     }
 
     #[allow(dead_code)]
-    pub(crate) async fn shutdown(self) -> Result<()> {
+    pub(crate) async fn shutdown(&self) -> Result<()> {
         self.router.shutdown().await
     }
 }

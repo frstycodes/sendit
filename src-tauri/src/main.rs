@@ -6,14 +6,19 @@ mod utils;
 
 use anyhow::Result;
 
+use ::iroh::NodeAddr;
 use iroh::BlobsClient;
+use serde::Serialize;
 use std::{
     fs,
+    os::windows::fs::MetadataExt,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
+    thread,
     time::{Duration, Instant},
 };
+
 use tokio::sync::{Mutex, MutexGuard};
 use tracing::info;
 
@@ -23,12 +28,13 @@ use iroh_blobs::{
 };
 use iroh_blobs::{rpc::client::blobs::WrapOption, store::ExportMode, util::SetTagOption};
 use n0_future::stream::StreamExt;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 
 mod files;
 
-type State<'a> = tauri::State<'a, AppState>;
+const DATA_DIR: &str = "sendit";
 
+type State<'a> = tauri::State<'a, AppState>;
 pub struct AppState {
     iroh: iroh::Iroh,
     files: Mutex<files::Files>,
@@ -52,11 +58,86 @@ impl AppState {
 }
 
 #[tauri::command]
-async fn add_file(
+async fn clean_up(
     state: tauri::State<'_, AppState>,
-    path: String,
     handle: AppHandle,
 ) -> anyhow::Result<(), String> {
+    let data_dir = handle
+        .path()
+        .temp_dir()
+        .map_err(|e| format!("Failed to get temp dir: {:?}", e))?
+        .join(DATA_DIR);
+
+    println!("Exists: {}", data_dir.exists());
+    println!("Cleaning up data directory: {:?}", data_dir.display());
+
+    fs::remove_dir_all(data_dir.clone())
+        .map_err(|e| format!("Failed to remove data dir: {:?}", e))?;
+
+    state.iroh().shutdown().await;
+
+    let iroh = iroh::Iroh::new(data_dir)
+        .await
+        .map_err(|e| format!("Failed to create iroh instance: {:?}", e))?;
+
+    handle.manage(AppState::new(iroh));
+
+    Ok(())
+}
+
+#[derive(Debug, Serialize)]
+struct ValidatedFile {
+    name: String,
+    size: u64,
+    path: String,
+}
+
+#[tauri::command]
+fn validate_files(paths: Vec<&str>) -> Result<Vec<ValidatedFile>, String> {
+    let mut files = Vec::new();
+
+    for path in paths {
+        match validate_file(path) {
+            Ok(file) => files.push(file),
+            Err(e) => println!("Error at path: {}\nError: {}", path, e),
+        }
+    }
+
+    Ok(files)
+}
+
+fn validate_file(path: &str) -> Result<ValidatedFile, String> {
+    let original_path = path.to_string();
+    let path = PathBuf::from(path)
+        .canonicalize()
+        .map_err(|e| format!("Failed to canonicalize path: {:?}", e))?;
+
+    if !path.exists() {
+        return Err("File does not exist at path".to_string());
+    }
+
+    if path.is_dir() {
+        return Err("Directory not supported".to_string());
+    }
+
+    let metadata = path
+        .metadata()
+        .map_err(|e| format!("Failed to get metadata: {:?}", e))?;
+
+    let size = metadata.file_size();
+    let name = utils::file_name_from_path(&path)?;
+
+    let file = ValidatedFile {
+        name,
+        size,
+        path: original_path,
+    };
+
+    Ok(file)
+}
+
+#[tauri::command]
+async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(), String> {
     let original_path = path.clone();
     let path = PathBuf::from(path)
         .canonicalize()
@@ -72,10 +153,11 @@ async fn add_file(
 
     let file_name = utils::file_name_from_path(&path)?;
 
-    let mut files = state.files().await;
-
-    if files.has_file(&file_name) {
-        return Err(format!("Duplicate file names not allowed.",));
+    {
+        let files = state.files().await;
+        if files.has_file(&file_name) {
+            return Err(format!("Duplicate file names not allowed.",));
+        }
     }
 
     let mut r = state
@@ -100,7 +182,7 @@ async fn add_file(
                     size = file_size;
                     let payload = events::UploadFileAdded {
                         name: file_name.clone(),
-                        path: original_path.clone(),
+                        path: original_path.to_string(),
                         size,
                     };
                     let _ = handle.emit(events::UPLOAD_FILE_ADDED, payload);
@@ -140,7 +222,10 @@ async fn add_file(
 
     println!("Ticket created: {}", ticket);
 
-    files.add_file(file_name, size, ticket);
+    {
+        let mut files = state.files.lock().await;
+        files.add_file(file_name, size, ticket);
+    }
     Ok(())
 }
 
@@ -337,8 +422,20 @@ async fn download_file(
 
     let mut last_offset = 0;
     let mut timestamp = Instant::now();
+    let mut aborted_file = "";
 
     while let Some(progress) = r.next().await {
+        if aborted_file == file.name {
+            handle.emit(
+                events::DOWNLOAD_FILE_ABORTED,
+                events::DownloadFileAborted {
+                    name: file.name.clone(),
+                    reason: "Cancelled.".to_string(),
+                },
+            );
+            return Err("Download aborted".to_string());
+        }
+
         match progress {
             Ok(p) => match p {
                 DP::FoundLocal { size: s, .. } => {
@@ -399,7 +496,7 @@ async fn download_file(
 }
 
 async fn setup(handle: AppHandle) -> Result<()> {
-    let data_dir = handle.path().temp_dir()?.join(".sendit");
+    let data_dir = handle.path().temp_dir()?.join(DATA_DIR);
     fs::create_dir_all(&data_dir)?;
 
     let iroh = iroh::Iroh::new(data_dir).await?;
@@ -430,9 +527,11 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            clean_up,
             add_file,
             remove_file,
             remove_all_files,
+            validate_files,
             download,
             generate_ticket,
         ])
