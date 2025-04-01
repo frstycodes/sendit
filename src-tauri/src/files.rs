@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use iroh_blobs::ticket::BlobTicket;
 
 #[derive(Clone)]
 pub struct File {
     pub name: String,
+    pub icon: String,
     pub size: u64,
     pub ticket: BlobTicket,
 }
@@ -24,15 +25,14 @@ impl Files {
         self.0.get(name)
     }
 
-    pub fn add_file(&mut self, name: String, size: u64, ticket: BlobTicket) {
-        self.0.insert(
-            name.clone(),
-            File {
-                name: name.clone(),
-                size,
-                ticket,
-            },
-        );
+    pub fn add_file(&mut self, name: String, icon: String, size: u64, ticket: BlobTicket) {
+        let file = File {
+            name: name.clone(),
+            icon,
+            size,
+            ticket,
+        };
+        self.0.insert(name, file);
     }
 
     pub fn remove_file(&mut self, name: &str) {

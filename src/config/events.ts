@@ -8,6 +8,7 @@ export const DOWNLOAD_FILE_ERROR = 'DOWNLOAD_FILE_ERROR'
 
 export type DownloadFileAdded = {
   name: string
+  icon: string
   size: number
 }
 export type DownloadFileProgress = {
@@ -29,6 +30,7 @@ export const UPLOAD_FILE_REMOVED = 'UPLOAD_FILE_REMOVED'
 
 export type UploadFileAdded = {
   name: string
+  icon: string
   path: string
   size: number
 }

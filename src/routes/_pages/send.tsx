@@ -3,7 +3,7 @@ import { AnimatedCheckMark } from '@/components/animated-checkmark'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
 import { sleep, Throttle } from '@/lib/utils'
 import { AppState, UploadQueueItem } from '@/state/appstate'
@@ -40,6 +40,7 @@ function SendPage() {
          event when the items are cleared and until the file is received from backend. */
         setDraggedItems([])
         const item = event.payload as events.UploadFileAdded as UploadQueueItem
+        console.log(item)
         item.progress = 0
         store.addToUploadQueue(item)
       },
@@ -77,6 +78,7 @@ function SendPage() {
           (file) => !uploadQueueSet.has(file.name),
         )
         setDraggedItems(files)
+        scrollAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       },
 
       'tauri://drag-leave': () => {
@@ -129,7 +131,10 @@ function SendPage() {
 
   const showEmptyMessage = !dragging && store.uploadQueue.length == 0
   return (
-    <motion.div layout className='flex flex-1 flex-col gap-2 overflow-y-hidden'>
+    <motion.div
+      layout
+      className='flex flex-1 flex-col gap-2 overflow-y-hidden overflow-x-visible'
+    >
       <div className='flex items-center justify-between gap-2'>
         <p className='text-xl font-bold'>{store.uploadQueue.length} files</p>
         <Button
@@ -167,9 +172,7 @@ function SendPage() {
             )}
             {draggedItems.map((item) => {
               const queueItem: UploadQueueItem = {
-                name: item.name,
-                path: item.path,
-                size: item.size,
+                ...item,
                 progress: 0,
                 speed: 0,
               }

@@ -88,6 +88,7 @@ async fn clean_up(
 #[derive(Debug, Serialize)]
 struct ValidatedFile {
     name: String,
+    icon: String,
     size: u64,
     path: String,
 }
@@ -120,6 +121,15 @@ fn validate_file(path: &str) -> Result<ValidatedFile, String> {
         return Err("Directory not supported".to_string());
     }
 
+    let icon = utils::get_file_icon(original_path.clone());
+    let icon = match icon {
+        Ok(icon) => icon,
+        Err(e) => {
+            println!("{}. Using default value", e);
+            String::new()
+        }
+    };
+
     let metadata = path
         .metadata()
         .map_err(|e| format!("Failed to get metadata: {:?}", e))?;
@@ -129,6 +139,7 @@ fn validate_file(path: &str) -> Result<ValidatedFile, String> {
 
     let file = ValidatedFile {
         name,
+        icon,
         size,
         path: original_path,
     };
@@ -151,6 +162,14 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
         return Err("Directory not supported".to_string());
     }
 
+    let icon = utils::get_file_icon(original_path.clone());
+    let icon = match icon {
+        Ok(icon) => icon,
+        Err(e) => {
+            println!("{}. Using default value.", e);
+            String::new()
+        }
+    };
     let file_name = utils::file_name_from_path(&path)?;
 
     {
@@ -168,7 +187,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
         .map_err(|e| format!("Failed to add file: {:?}", e))?;
 
     let mut size: u64 = 0;
-    let mut debouncer = utils::Debouncer::new(Duration::from_millis(32));
+    let mut throttle = utils::Throttle::new(Duration::from_millis(32));
 
     let mut hash: Hash = Hash::EMPTY;
 
@@ -180,15 +199,17 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
                 } => {
                     println!("Found file: {}", file_name);
                     size = file_size;
+
                     let payload = events::UploadFileAdded {
                         name: file_name.clone(),
+                        icon: icon.clone(),
                         path: original_path.to_string(),
                         size,
                     };
                     let _ = handle.emit(events::UPLOAD_FILE_ADDED, payload);
                 }
                 AddProgress::Progress { offset, .. } => {
-                    if debouncer.is_free() {
+                    if throttle.is_free() {
                         let progress_percent = (offset as f32 / size as f32) * 100.0;
                         println!("Progress: {}", progress_percent);
                         let payload = events::UploadFileProgress {
@@ -224,7 +245,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
 
     {
         let mut files = state.files.lock().await;
-        files.add_file(file_name, size, ticket);
+        files.add_file(file_name, icon, size, ticket);
     }
     Ok(())
 }
@@ -346,27 +367,28 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
     for line in lines {
         let parts: Vec<&str> = line.split("\0").collect();
 
-        if parts.len() != 3 {
+        if parts.len() != 4 {
             continue;
         };
 
         let name = parts[0].to_owned();
+        let icon = parts[2].to_owned();
         let size: u64 = parts[1]
             .parse()
             .map_err(|e| format!("Failed to parse file size: {}", e))?;
-
         let ticket: BlobTicket = parts[2]
             .parse()
             .map_err(|e| format!("Failed to parse file ticket: {}", e))?;
 
         let file = files::File {
             name: name.clone(),
+            icon: String::new(), // we don't need icon for download task
             size: size.clone(),
             ticket,
         };
 
         // Emit event to notify UI about new download
-        let payload = events::DownloadFileAdded { name, size };
+        let payload = events::DownloadFileAdded { name, icon, size };
         let _ = handle.clone().emit(events::DOWNLOAD_FILE_ADDED, payload);
 
         let blobs = Arc::clone(&blobs);
@@ -399,7 +421,7 @@ async fn download_file(
 ) -> Result<(), String> {
     let mut size: u64 = 0;
     use DownloadProgress as DP;
-    let mut debouncer = utils::Debouncer::new(Duration::from_millis(10));
+    let mut throttle = utils::Throttle::new(Duration::from_millis(10));
     let ticket = &file.ticket;
 
     let dest = export_dir.join(file.name.clone());
@@ -447,7 +469,7 @@ async fn download_file(
                     size = s;
                 }
                 DP::Progress { offset, .. } => {
-                    if debouncer.is_free() {
+                    if throttle.is_free() {
                         let speed =
                             (offset - last_offset) as f32 / timestamp.elapsed().as_micros() as f32;
 

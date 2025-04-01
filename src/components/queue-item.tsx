@@ -22,7 +22,7 @@ export type QueueItemProps = {
 
 export const QueueItem = memo(Internal__QueueItem)
 function Internal__QueueItem({
-  item: { name, size, progress, ...item },
+  item: { name, icon, size, progress, ...item },
   style,
   dropdownContent,
   doneLabel,
@@ -30,7 +30,8 @@ function Internal__QueueItem({
 }: QueueItemProps) {
   const hasPath = 'path' in item
   const fileType = name.split('.').pop()?.toLowerCase() || ''
-  const icon = getFileIcon(fileType)
+
+  const iconEl = icon ? <img src={icon} /> : getFileIcon(fileType)
 
   return (
     <motion.div
@@ -43,7 +44,7 @@ function Internal__QueueItem({
       className='flex flex-col gap-2 rounded-sm bg-foreground/5 p-2 px-3 shadow-md'
     >
       <div className='flex items-center gap-2'>
-        <span className='text-xl'>{icon}</span>
+        <span className='text-xl'>{iconEl}</span>
         <div className='truncate'>
           <div className='font-xl flex gap-1 text-sm'>
             <p className='truncate'>{name}</p>

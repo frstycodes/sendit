@@ -12,6 +12,7 @@ pub const DOWNLOAD_ALL_COMPLETE: &str = "DOWNLOAD_ALL_COMPLETE";
 #[derive(Debug, Clone, Serialize)]
 pub struct DownloadFileAdded {
     pub name: String,
+    pub icon: String,
     pub size: u64,
 }
 
@@ -49,6 +50,7 @@ pub const UPLOAD_FILE_REMOVED: &str = "UPLOAD_FILE_REMOVED";
 #[derive(Debug, Clone, Serialize)]
 pub struct UploadFileAdded {
     pub name: String,
+    pub icon: String,
     pub path: String,
     pub size: u64,
 }

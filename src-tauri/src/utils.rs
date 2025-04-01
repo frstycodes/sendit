@@ -1,8 +1,10 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
+use file_icon_provider::get_file_icon as get_file_icon_pkg;
+use image::{DynamicImage, RgbaImage};
 use tauri::{AppHandle, Manager};
 
 pub fn file_name_from_path(path: &PathBuf) -> Result<String, String> {
@@ -23,12 +25,12 @@ pub fn get_download_dir(handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-pub struct Debouncer {
+pub struct Throttle {
     last_emit: Instant,
     interval: Duration,
 }
 
-impl Debouncer {
+impl Throttle {
     pub fn new(interval: Duration) -> Self {
         Self {
             last_emit: Instant::now() - interval,
@@ -40,9 +42,24 @@ impl Debouncer {
         let now = Instant::now();
         if now.duration_since(self.last_emit) >= self.interval {
             self.last_emit = now;
-            true
-        } else {
-            false
+            return true;
         }
+        false
     }
+}
+
+pub fn get_file_icon(path: impl AsRef<Path>) -> Result<String, String> {
+    let icon = get_file_icon_pkg(path, 64).map_err(|e| format!("{}", e))?;
+    let image = RgbaImage::from_raw(icon.width, icon.height, icon.pixels)
+        .map(DynamicImage::ImageRgba8)
+        .expect("Failed to convert icon to image");
+
+    let mut png_data: Vec<u8> = Vec::new();
+    let mut cursor = std::io::Cursor::new(&mut png_data);
+    image
+        .write_to(&mut cursor, image::ImageFormat::Png)
+        .map_err(|e| format!("Failed to encode image to PNG: {}", e))?;
+
+    let png_string = format!("data:image/png;base64,{}", base64::encode(png_data));
+    Ok(png_string)
 }

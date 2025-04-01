@@ -27,6 +27,7 @@ async function invoke<T, E>(
 
 export type ValidatedFile = {
   name: string
+  icon: string
   path: string
   size: number
 }
@@ -97,6 +98,9 @@ export const api = {
    * @param ticket - The doc ticket to use for downloading.
    */
   download: (ticket: string) => invoke<void, string>('download', { ticket }),
+
+  getFileIcon: (path: string) =>
+    invoke<string, string>('get_file_icon', { path }),
 
   /**
    * Abort a download using a doc ticket.

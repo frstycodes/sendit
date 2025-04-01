@@ -3,6 +3,7 @@ import { createSelector } from '@/lib/zustand'
 
 export type DownloadQueueItem = {
   name: string
+  icon: string
   size: number
   progress: number
   speed: number
