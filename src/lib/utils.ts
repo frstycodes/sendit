@@ -1,9 +1,3 @@
-import {
-  EventCallback,
-  EventName,
-  listen as listen_tauri,
-  Options,
-} from '@tauri-apps/api/event'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -11,59 +5,59 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function throttle<F extends (...args: any[]) => void>(
-  fn: F,
-  delay: number,
-): F {
-  let isThrottled = false
-  let savedArgs: Parameters<F> | null = null
+/** Sleep for a given number of milliseconds */
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
-  function wrapper(this: any, ...args: Parameters<F>) {
-    if (isThrottled) {
-      savedArgs = args
-      return
+export class Throttle {
+  private lastEmitMap: Record<string, number> = {}
+  private lastEmit: number = 0
+
+  constructor(private delay: number) {
+    this.lastEmit = 0 - delay
+  }
+
+  /**
+   * Checks if the throttle is free to emit. Returns true if the throttle is free, false otherwise.
+   * @param key optional param which allows for throttling of specific keys only
+   * @returns
+   */
+  isFree(key?: string): boolean {
+    if (key != undefined) {
+      return this.isFree_Key(key)
     }
-
-    fn.apply(this, args)
-    isThrottled = true
-
-    setTimeout(() => {
-      isThrottled = false
-      if (savedArgs) {
-        wrapper.apply(this, savedArgs)
-        savedArgs = null
-      }
-    }, delay)
+    return this.isFree_NoKey()
   }
 
-  return wrapper as F
-}
-
-export async function listen<T>(
-  event: EventName,
-  callback: EventCallback<NoInfer<T>>,
-  options?: Options & { signal?: AbortSignal },
-) {
-  const { signal, ...opts } = options ?? {}
-  const unsub = listen_tauri(event, callback, opts)
-
-  signal?.addEventListener('abort', () => unsub.then((f) => f()))
-  return unsub
-}
-
-export function listeners(
-  record: Partial<Record<EventName, EventCallback<any>>>,
-): () => void {
-  const controller = new AbortController()
-
-  for (const [event, callback] of Object.entries(record)) {
-    if (!callback) continue
-    listen(event, callback, { signal: controller.signal })
+  private isFree_NoKey(): boolean {
+    const now = Date.now()
+    const elapsed = now - this.lastEmit
+    if (elapsed >= this.delay) {
+      this.lastEmit = now
+      return true
+    }
+    return false
   }
-  return () => {
-    controller.abort()
+
+  private isFree_Key(key: string): boolean {
+    const now = Date.now()
+    if (!(key in this.lastEmitMap)) {
+      this.lastEmitMap[key] = now
+      return true
+    }
+    const lastEmit = this.lastEmitMap[key]
+
+    const elapsed = now - lastEmit
+    if (elapsed >= this.delay) {
+      this.lastEmitMap[key] = now
+      return true
+    }
+    return false
   }
 }
+
+export class Debounce {}
 
 export function getFileIcon(fileType: string) {
   switch (fileType) {
@@ -110,4 +104,10 @@ export function bytesToString(bytes: number) {
   if (bytes === 0) return '0 B'
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`
+}
+
+export function mapSet<T, U>(set: Set<T>, mapper: (value: T) => U): Set<U> {
+  const result = new Set<U>()
+  set.forEach((value) => result.add(mapper(value)))
+  return result
 }

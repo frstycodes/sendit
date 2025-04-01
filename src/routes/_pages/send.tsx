@@ -1,24 +1,29 @@
-import { api } from '@/api/tauri'
+import { api, copyText, listeners, ValidatedFile } from '@/api/tauri'
 import { AnimatedCheckMark } from '@/components/animated-checkmark'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
-import { listeners } from '@/lib/utils'
+import { sleep, Throttle } from '@/lib/utils'
 import { AppState, UploadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
+import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { open } from '@tauri-apps/plugin-dialog'
 import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
-import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/send')({
   component: SendPage,
 })
 
 function SendPage() {
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const [draggedItems, setDraggedItems] = useState<ValidatedFile[]>([])
+  const dragging = draggedItems.length > 0
+
   const store = AppState.use(
     'uploadQueue',
     'addToUploadQueue',
@@ -27,16 +32,23 @@ function SendPage() {
   )
 
   useEffect(() => {
+    const throttle = new Throttle(32)
+
     const unsub = listeners({
       [events.UPLOAD_FILE_ADDED]: (event) => {
+        /*  We are clearing this here to prevent the empty message to flicker after drag-drop
+         event when the items are cleared and until the file is received from backend. */
+        setDraggedItems([])
         const item = event.payload as events.UploadFileAdded as UploadQueueItem
         item.progress = 0
         store.addToUploadQueue(item)
       },
 
       [events.UPLOAD_FILE_PROGRESS]: (event) => {
-        const file = event.payload as events.UploadFileProgress
-        store.updateUploadQueueItemProgress(file.path, file.progress)
+        if (throttle.isFree()) {
+          const file = event.payload as events.UploadFileProgress
+          store.updateUploadQueueItemProgress(file.path, file.progress)
+        }
       },
 
       [events.UPLOAD_FILE_COMPLETED]: (event) => {
@@ -48,64 +60,133 @@ function SendPage() {
         const name = event.payload as events.UploadFileRemoved
         store.removeFromUploadQueue(name)
       },
+
+      'tauri://drag-enter': async (event) => {
+        let uploadQueueSet = new Set(
+          AppState.get().uploadQueue.map((i) => i.name),
+        )
+        const paths = event.payload.paths as string[]
+
+        let filesRes = await api.validateFiles(paths)
+        if (filesRes.isErr()) {
+          toast.error(filesRes.error)
+          return
+        }
+
+        let files = filesRes.value.filter(
+          (file) => !uploadQueueSet.has(file.name),
+        )
+        setDraggedItems(files)
+      },
+
+      'tauri://drag-leave': () => {
+        setDraggedItems([])
+      },
+
+      'tauri://drag-drop': async (event) => {
+        let uploadQueueSet = new Set(
+          AppState.get().uploadQueue.map((i) => i.name),
+        )
+        const paths = event.payload.paths as string[]
+        let files = await api.validateFiles(paths)
+
+        if (files.isErr()) {
+          toast.error(files.error)
+          return
+        }
+
+        for (const file of files.value) {
+          if (uploadQueueSet.has(file.name)) continue
+          addFile(file.path)
+        }
+      },
     })
 
     return unsub
   }, [])
 
-  async function handleAddFile() {
+  async function addFilesFromDialog() {
     const paths = await open({ multiple: true })
-
     if (!paths) return
-    for (const path of paths) {
-      api.addFile(path)
+    for (const path of paths) addFile(path)
+  }
+
+  async function addFile(path: string) {
+    const file = await api.addFile(path)
+    if (file.isErr()) {
+      toast.error(file.error)
+      return
     }
   }
 
+  async function clearFiles() {
+    const clearRes = await api.removeAllFiles()
+    if (clearRes.isErr()) {
+      toast.error(clearRes.error)
+      console.error(clearRes.error)
+    }
+  }
+
+  const showEmptyMessage = !dragging && store.uploadQueue.length == 0
   return (
     <motion.div layout className='flex flex-1 flex-col gap-2 overflow-y-hidden'>
       <div className='flex items-center justify-between gap-2'>
-        <p className='text-xl font-bold'>Added Files</p>
+        <p className='text-xl font-bold'>{store.uploadQueue.length} files</p>
         <Button
-          onClick={() => api.removeAllFiles().catch(console.error)}
+          onClick={clearFiles}
           variant='destructive'
           className='ml-auto h-7 gap-2 px-3 text-xs'
         >
           <Trash2 className='!size-3.5' /> Clear
         </Button>
-        <Button onClick={handleAddFile} className='h-7 gap-1 px-3 text-xs'>
+        <Button onClick={addFilesFromDialog} className='h-7 gap-1 px-3 text-xs'>
           <Plus /> Add Files
         </Button>
       </div>
-      <ScrollArea className='flex flex-1 overflow-y-auto rounded-md border bg-background/20 px-3'>
-        <div className='flex flex-1 flex-col gap-1.5'>
+      <ScrollArea
+        ref={scrollAreaRef}
+        data-dragging={dragging}
+        className='flex flex-1 overflow-y-auto rounded-md border bg-background/20 p-2 transition-all data-[dragging=true]:border-emerald-500 data-[dragging=true]:bg-emerald-500/10'
+      >
+        <motion.div className='flex flex-1 flex-col gap-1.5'>
           <AnimatePresence mode='popLayout'>
-            <div>
-              {store.uploadQueue.length === 0 && (
-                <>
-                  <motion.p
-                    layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className='mt-5 text-center text-muted-foreground'
-                  >
+            {showEmptyMessage && (
+              <motion.div key='empty-state' layout>
+                <div className='flex flex-col items-center gap-4 delay-200'>
+                  <p className='mt-5 text-center text-muted-foreground'>
                     Oops! Looks like it's a bit empty here 🤔
                     <br />
                     Add some files or drag and drop to start sharing the magic!
                     ✨
-                    <br />
-                    <br />
-                    <Button onClick={handleAddFile}>
-                      <Plus /> Add Files
-                    </Button>
-                  </motion.p>
-                </>
-              )}
-            </div>
+                  </p>
+                  <Button className='mx-auto' onClick={addFilesFromDialog}>
+                    <Plus /> Add Files
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+            {draggedItems.map((item) => {
+              const queueItem: UploadQueueItem = {
+                name: item.name,
+                path: item.path,
+                size: item.size,
+                progress: 0,
+                speed: 0,
+              }
+              return (
+                <div key={'dragging' + item.name} className='opacity-40'>
+                  <QueueItem
+                    item={queueItem}
+                    showProgress={false}
+                    doneLabel=''
+                  />
+                </div>
+              )
+            })}
             {store.uploadQueue.map((item) => {
               return (
                 <QueueItem
-                  key={item.path}
+                  key={item.name}
                   item={item}
                   doneLabel='Import complete'
                   dropdownContent={
@@ -128,7 +209,7 @@ function SendPage() {
               )
             })}
           </AnimatePresence>
-        </div>
+        </motion.div>
       </ScrollArea>
       {store.uploadQueue.length > 0 && <CopyTicketButton />}
     </motion.div>
@@ -139,15 +220,25 @@ function CopyTicketButton() {
   const [copied, setCopied] = useState(false)
 
   const copyTicket = async () => {
-    try {
-      const ticket = await api.generateTicket()
-      await writeText(ticket)
-      setCopied(true)
-    } catch (error) {
-      console.error('Failed to copy ticket:', error)
-    } finally {
-      setTimeout(() => setCopied(false), 1000)
+    const ticketRes = await api.generateTicket()
+
+    if (ticketRes.isErr()) {
+      console.error('Failed to generate ticket:', ticketRes.error)
+      toast.error('Failed to generate ticket')
+      return
     }
+    const copyRes = await copyText(ticketRes.value)
+    if (copyRes.isErr()) {
+      console.error('Failed to copy ticket:', copyRes.error)
+      toast.error('Failed to copy ticket')
+      return
+    }
+    await writeText(ticketRes.value).catch(() =>
+      toast.error('Failed to copy ticket'),
+    )
+    setCopied(true)
+    await sleep(1000)
+    setCopied(false)
   }
 
   return (

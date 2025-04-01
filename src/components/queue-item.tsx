@@ -1,7 +1,7 @@
 import { bytesToString, getFileIcon } from '@/lib/utils'
 import { DownloadQueueItem, UploadQueueItem } from '@/state/appstate'
 import { EllipsisVertical } from 'lucide-react'
-import { motion } from 'motion/react'
+import { motion, MotionStyle } from 'motion/react'
 import { memo } from 'react'
 import { AnimatedCheckMark } from './animated-checkmark'
 import { ProgressBar } from './progress-bar'
@@ -16,12 +16,17 @@ export type QueueItemProps = {
   item: UploadQueueItem | DownloadQueueItem
   dropdownContent?: React.ReactNode
   doneLabel: string
+  style?: MotionStyle
+  showProgress?: boolean
 }
 
+export const QueueItem = memo(Internal__QueueItem)
 function Internal__QueueItem({
   item: { name, size, progress, ...item },
+  style,
   dropdownContent,
   doneLabel,
+  showProgress = true,
 }: QueueItemProps) {
   const hasPath = 'path' in item
   const fileType = name.split('.').pop()?.toLowerCase() || ''
@@ -29,10 +34,11 @@ function Internal__QueueItem({
 
   return (
     <motion.div
-      layoutId={name}
+      layout
       initial={{ scale: 0.9, y: -10 }}
       animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0, x: -20000 }}
+      exit={{ opacity: 0, scale: 0.8, y: -10 }}
+      style={style}
       transition={{ type: 'spring', duration: 0.3 }}
       className='flex flex-col gap-2 rounded-sm bg-foreground/5 p-2 px-3 shadow-md'
     >
@@ -66,11 +72,9 @@ function Internal__QueueItem({
         )}
       </div>
 
-      {progress < 100 && (
+      {showProgress && progress < 100 && (
         <ProgressBar showPercentage progress={progress} speed={item.speed} />
       )}
     </motion.div>
   )
 }
-
-export const QueueItem = memo(Internal__QueueItem)

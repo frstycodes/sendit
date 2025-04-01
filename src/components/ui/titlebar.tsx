@@ -1,10 +1,10 @@
+import { cn } from '@/lib/utils'
+import { Router } from '@/main'
 import { useRouter } from '@tanstack/react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ChevronLeft, ChevronRight, Minus, Square, X } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
+import { ChevronLeft, ChevronRight, Minus, X } from 'lucide-react'
 import { Button } from './button'
-import { Router } from '@/main'
-import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 const appWindow = getCurrentWindow()
 const WINDOW_BUTTONS = [
@@ -13,11 +13,6 @@ const WINDOW_BUTTONS = [
     icon: <Minus className='size-4 group-hover:text-foreground' />,
     fn: () => appWindow.minimize(),
   },
-  // {
-  //   name: 'Maximize',
-  //   icon: <Square className='size-3 group-hover:text-foreground' />,
-  //   fn: () => appWindow.toggleMaximize(),
-  // },
   {
     name: 'Close',
     icon: <X className='size-4 group-hover:text-foreground' />,
