@@ -373,12 +373,14 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
             continue;
         };
 
+        println!("{:?}", parts);
+
         let name = parts[0].to_owned();
-        let icon = parts[2].to_owned();
-        let size: u64 = parts[1]
+        let icon = parts[1].to_owned();
+        let size: u64 = parts[2]
             .parse()
             .map_err(|e| format!("Failed to parse file size: {}", e))?;
-        let ticket: BlobTicket = parts[2]
+        let ticket: BlobTicket = parts[3]
             .parse()
             .map_err(|e| format!("Failed to parse file ticket: {}", e))?;
 
