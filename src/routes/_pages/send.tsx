@@ -3,7 +3,7 @@ import { AnimatedCheckMark } from '@/components/animated-checkmark'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
 import { sleep, Throttle } from '@/lib/utils'
 import { AppState, UploadQueueItem } from '@/state/appstate'
@@ -151,7 +151,7 @@ function SendPage() {
       <ScrollArea
         ref={scrollAreaRef}
         data-dragging={dragging}
-        className='flex flex-1 overflow-y-auto rounded-md border bg-background/20 p-2 transition-all data-[dragging=true]:border-emerald-500 data-[dragging=true]:bg-emerald-500/10'
+        className='flex flex-1 overflow-y-auto rounded-md border bg-background p-2 transition-all data-[dragging=true]:border-emerald-500 data-[dragging=true]:bg-emerald-500/10 dark:bg-background/20'
       >
         <motion.div className='flex flex-1 flex-col gap-1.5'>
           <AnimatePresence mode='popLayout'>

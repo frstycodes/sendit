@@ -3,6 +3,19 @@ import { EventName, listen as tauri__listen } from '@tauri-apps/api/event'
 import { emit, EventCallback, Options } from '@tauri-apps/api/event'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { err, ok, Result } from 'neverthrow'
+import { revealItemInDir as tauri__revealItemInDir } from '@tauri-apps/plugin-opener'
+
+export async function revealItemInDir(
+  path: string,
+): Promise<Result<void, string>> {
+  try {
+    await tauri__revealItemInDir(path)
+    return ok()
+  } catch (e) {
+    console.log(e)
+    return err(e as string)
+  }
+}
 
 export async function copyText(text: string): Promise<Result<void, string>> {
   try {

@@ -53,7 +53,10 @@ impl ToString for Files {
         let mut str = String::new();
 
         for (_, file) in &self.0 {
-            str.push_str(&format!("{}\0{}\0{}\n", file.name, file.size, file.ticket));
+            str.push_str(&format!(
+                "{}\0{}\0{}\0{}\n",
+                file.name, file.icon, file.size, file.ticket
+            ));
         }
 
         str

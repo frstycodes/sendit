@@ -11,6 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
+import { revealItemInDir } from '@/api/tauri'
 
 export type QueueItemProps = {
   item: UploadQueueItem | DownloadQueueItem
@@ -41,7 +42,7 @@ function Internal__QueueItem({
       exit={{ opacity: 0, scale: 0.8, y: -10 }}
       style={style}
       transition={{ type: 'spring', duration: 0.3 }}
-      className='flex flex-col gap-2 rounded-sm bg-foreground/5 p-2 px-3 shadow-md'
+      className='flex flex-col gap-2 rounded-sm border bg-muted p-2 px-3 shadow-sm dark:shadow-md'
     >
       <div className='flex items-center gap-2'>
         <span className='text-xl'>{iconEl}</span>
@@ -53,9 +54,12 @@ function Internal__QueueItem({
             )}
           </div>
           {hasPath && (
-            <p className='truncate text-xs text-muted-foreground'>
-              {item.path}
-            </p>
+            <a
+              onClick={() => revealItemInDir(item.path)}
+              className='cursor-pointer truncate text-[0.6rem] text-muted-foreground hover:underline'
+            >
+              {item.path.replace(/\\/g, '/')}
+            </a>
           )}
         </div>
         <p className='ml-auto whitespace-nowrap text-xs text-muted-foreground'>

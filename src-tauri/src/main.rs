@@ -6,12 +6,10 @@ mod utils;
 
 use anyhow::Result;
 
-use ::iroh::NodeAddr;
 use iroh::BlobsClient;
 use serde::Serialize;
 use std::{
     fs,
-    os::windows::fs::MetadataExt,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
@@ -74,7 +72,11 @@ async fn clean_up(
     fs::remove_dir_all(data_dir.clone())
         .map_err(|e| format!("Failed to remove data dir: {:?}", e))?;
 
-    state.iroh().shutdown().await;
+    state
+        .iroh()
+        .shutdown()
+        .await
+        .map_err(|e| format!("Failed to shutdown iroh: {:?}", e))?;
 
     let iroh = iroh::Iroh::new(data_dir)
         .await
@@ -134,7 +136,7 @@ fn validate_file(path: &str) -> Result<ValidatedFile, String> {
         .metadata()
         .map_err(|e| format!("Failed to get metadata: {:?}", e))?;
 
-    let size = metadata.file_size();
+    let size = metadata.len();
     let name = utils::file_name_from_path(&path)?;
 
     let file = ValidatedFile {
