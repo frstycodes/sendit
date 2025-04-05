@@ -85,44 +85,43 @@ export const api = {
    * Clean up the database directory.
    */
   validateFiles: (paths: string[]) =>
-    invoke<ValidatedFile[], string>('validate_files', { paths }),
+    invoke<ValidatedFile[]>('validate_files', { paths }),
 
   /**
    * Clean up the database directory.
    */
-  cleanUp: () => invoke<void, string>('clean_up'),
+  cleanUp: () => invoke<void>('clean_up'),
 
   /**
    * Add a file to the list.
    * @param path - The path of the file to add.
    */
-  addFile: (path: string) => invoke<void, string>('add_file', { path }),
+  addFile: (path: string) => invoke<void>('add_file', { path }),
 
   /**
    * Remove a file.
    * @param path - The path of the file to remove.
    */
-  removeFile: (path: string) => invoke<void, string>('remove_file', { path }),
+  removeFile: (path: string) => invoke<void>('remove_file', { path }),
 
   /**
    * Remove all files from the list.
    * @param path - The path to remove all files from.
    */
-  removeAllFiles: () => invoke<void, string>('remove_all_files', {}),
+  removeAllFiles: () => invoke<void>('remove_all_files', {}),
 
   /**
    * Generate a doc ticket for a file.
    */
-  generateTicket: () => invoke<string, string>('generate_ticket'),
+  generateTicket: () => invoke<string>('generate_ticket'),
 
   /**
    * Download files using a doc ticket.
    * @param ticket - The doc ticket to use for downloading.
    */
-  download: (ticket: string) => invoke<void, string>('download', { ticket }),
+  download: (ticket: string) => invoke<void>('download', { ticket }),
 
-  getFileIcon: (path: string) =>
-    invoke<string, string>('get_file_icon', { path }),
+  getFileIcon: (path: string) => invoke<string>('get_file_icon', { path }),
 
   /**
    * Abort a download using a doc ticket.
