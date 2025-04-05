@@ -1,9 +1,16 @@
 import { invoke as tauri__invoke } from '@tauri-apps/api/core'
-import { EventName, listen as tauri__listen } from '@tauri-apps/api/event'
-import { emit, EventCallback, Options } from '@tauri-apps/api/event'
+import {
+  emit,
+  EventCallback,
+  EventName,
+  Options,
+  listen as tauri__listen,
+} from '@tauri-apps/api/event'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
-import { err, ok, Result } from 'neverthrow'
+import * as log from '@tauri-apps/plugin-log'
 import { revealItemInDir as tauri__revealItemInDir } from '@tauri-apps/plugin-opener'
+import { err, ok, Result } from 'neverthrow'
+import { toast } from 'sonner'
 
 export async function revealItemInDir(
   path: string,
@@ -12,7 +19,6 @@ export async function revealItemInDir(
     await tauri__revealItemInDir(path)
     return ok()
   } catch (e) {
-    console.log(e)
     return err(e as string)
   }
 }
@@ -26,15 +32,18 @@ export async function copyText(text: string): Promise<Result<void, string>> {
   }
 }
 
-async function invoke<T, E>(
+async function invoke<T>(
   command: string,
   args?: any,
-): Promise<Result<T, E>> {
+): Promise<Result<T, string>> {
   try {
     const res: T = await tauri__invoke(command, args)
     return ok(res)
-  } catch (e) {
-    return err(e as E)
+  } catch (error) {
+    let e = error as string
+    toast.error(e)
+    log.error(e)
+    return err(e)
   }
 }
 

@@ -42,6 +42,8 @@ tauri-plugin-clipboard-manager = "2"
 file_icon_provider = "0.4.0"
 image = "0.25.6"
 base64 = "0.22.1"
+tauri-plugin-log = "2"
+log = "0.4.27"
 
 [dev-dependencies]
 duct = "0.13.6"

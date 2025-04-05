@@ -8,12 +8,10 @@ import * as events from '@/config/events'
 import { sleep, Throttle } from '@/lib/utils'
 import { AppState, UploadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
-import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { open } from '@tauri-apps/plugin-dialog'
 import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/send')({
   component: SendPage,
@@ -68,13 +66,10 @@ function SendPage() {
         )
         const paths = event.payload.paths as string[]
 
-        let filesRes = await api.validateFiles(paths)
-        if (filesRes.isErr()) {
-          toast.error(filesRes.error)
-          return
-        }
+        const filesRes = await api.validateFiles(paths)
+        if (filesRes.isErr()) return
 
-        let files = filesRes.value.filter(
+        const files = filesRes.value.filter(
           (file) => !uploadQueueSet.has(file.name),
         )
         setDraggedItems(files)
@@ -86,20 +81,16 @@ function SendPage() {
       },
 
       'tauri://drag-drop': async (event) => {
-        let uploadQueueSet = new Set(
+        const uploadQueueSet = new Set(
           AppState.get().uploadQueue.map((i) => i.name),
         )
         const paths = event.payload.paths as string[]
-        let files = await api.validateFiles(paths)
-
-        if (files.isErr()) {
-          toast.error(files.error)
-          return
-        }
+        const files = await api.validateFiles(paths)
+        if (files.isErr()) return
 
         for (const file of files.value) {
           if (uploadQueueSet.has(file.name)) continue
-          addFile(file.path)
+          api.addFile(file.path)
         }
       },
     })
@@ -110,23 +101,7 @@ function SendPage() {
   async function addFilesFromDialog() {
     const paths = await open({ multiple: true })
     if (!paths) return
-    for (const path of paths) addFile(path)
-  }
-
-  async function addFile(path: string) {
-    const file = await api.addFile(path)
-    if (file.isErr()) {
-      toast.error(file.error)
-      return
-    }
-  }
-
-  async function clearFiles() {
-    const clearRes = await api.removeAllFiles()
-    if (clearRes.isErr()) {
-      toast.error(clearRes.error)
-      console.error(clearRes.error)
-    }
+    for (const path of paths) api.addFile(path)
   }
 
   const showEmptyMessage = !dragging && store.uploadQueue.length == 0
@@ -138,7 +113,7 @@ function SendPage() {
       <div className='flex items-center justify-between gap-2'>
         <p className='text-xl font-bold'>{store.uploadQueue.length} files</p>
         <Button
-          onClick={clearFiles}
+          onClick={api.removeAllFiles}
           variant='destructive'
           className='ml-auto h-7 gap-2 px-3 text-xs'
         >
@@ -224,21 +199,11 @@ function CopyTicketButton() {
 
   const copyTicket = async () => {
     const ticketRes = await api.generateTicket()
+    if (ticketRes.isErr()) return
 
-    if (ticketRes.isErr()) {
-      console.error('Failed to generate ticket:', ticketRes.error)
-      toast.error('Failed to generate ticket')
-      return
-    }
     const copyRes = await copyText(ticketRes.value)
-    if (copyRes.isErr()) {
-      console.error('Failed to copy ticket:', copyRes.error)
-      toast.error('Failed to copy ticket')
-      return
-    }
-    await writeText(ticketRes.value).catch(() =>
-      toast.error('Failed to copy ticket'),
-    )
+    if (copyRes.isErr()) return
+
     setCopied(true)
     await sleep(1000)
     setCopied(false)

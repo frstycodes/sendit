@@ -63,3 +63,24 @@ pub fn get_file_icon(path: impl AsRef<Path>) -> Result<String, String> {
     let png_string = format!("data:image/png;base64,{}", base64::encode(png_data));
     Ok(png_string)
 }
+
+pub enum LogLevel {
+    Debug,
+    Info,
+    Warn,
+    Error,
+}
+
+#[macro_export]
+macro_rules! log {
+    ($level:expr, $($arg:tt)*) => {{
+        let formatted = format!($($arg)*);
+        match $level {
+            LogLevel::Debug => log::debug!("DEBUG: {}", formatted),
+            LogLevel::Info => log::info!("INFO: {}", formatted),
+            LogLevel::Warn => log::warn!("WARN: {}", formatted),
+            LogLevel::Error => log::error!("ERROR: {}", formatted),
+        }
+        formatted
+    }};
+}

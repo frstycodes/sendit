@@ -13,12 +13,13 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::Arc,
-    thread,
     time::{Duration, Instant},
 };
+use tauri_plugin_log::{Target, TargetKind};
+use utils::LogLevel;
 
 use tokio::sync::{Mutex, MutexGuard};
-use tracing::info;
+use tracing::{debug, error, info, warn};
 
 use iroh_blobs::{
     get::db::DownloadProgress, provider::AddProgress, store::ExportFormat, ticket::BlobTicket,
@@ -26,7 +27,7 @@ use iroh_blobs::{
 };
 use iroh_blobs::{rpc::client::blobs::WrapOption, store::ExportMode, util::SetTagOption};
 use n0_future::stream::StreamExt;
-use tauri::{AppHandle, Emitter, Listener, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 mod files;
 
@@ -66,8 +67,7 @@ async fn clean_up(
         .map_err(|e| format!("Failed to get temp dir: {:?}", e))?
         .join(DATA_DIR);
 
-    println!("Exists: {}", data_dir.exists());
-    println!("Cleaning up data directory: {:?}", data_dir.display());
+    info!("Cleaning up data directory: {:?}", data_dir.display());
 
     fs::remove_dir_all(data_dir.clone())
         .map_err(|e| format!("Failed to remove data dir: {:?}", e))?;
@@ -102,7 +102,7 @@ fn validate_files(paths: Vec<&str>) -> Result<Vec<ValidatedFile>, String> {
     for path in paths {
         match validate_file(path) {
             Ok(file) => files.push(file),
-            Err(e) => println!("Error at path: {}\nError: {}", path, e),
+            Err(e) => warn!("Error at path: {}\nError: {}", path, e),
         }
     }
 
@@ -116,18 +116,20 @@ fn validate_file(path: &str) -> Result<ValidatedFile, String> {
         .map_err(|e| format!("Failed to canonicalize path: {:?}", e))?;
 
     if !path.exists() {
-        return Err("File does not exist at path".to_string());
+        let err = log!(LogLevel::Error, "File does not exists at path");
+        return Err(err);
     }
 
     if path.is_dir() {
-        return Err("Directory not supported".to_string());
+        let err = log!(LogLevel::Error, "Directory not supported");
+        return Err(err);
     }
 
     let icon = utils::get_file_icon(original_path.clone());
     let icon = match icon {
         Ok(icon) => icon,
         Err(e) => {
-            println!("{}. Using default value", e);
+            warn!("{}. Using default value", e);
             String::new()
         }
     };
@@ -151,24 +153,27 @@ fn validate_file(path: &str) -> Result<ValidatedFile, String> {
 
 #[tauri::command]
 async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(), String> {
+    info!("Adding file: {}", path);
     let original_path = path.clone();
     let path = PathBuf::from(path)
         .canonicalize()
         .map_err(|e| format!("Failed to canonicalize path: {:?}", e))?;
 
     if !path.exists() {
-        return Err("File does not exist at path".to_string());
+        let err = log!(LogLevel::Error, "File does not exist at path");
+        return Err(err);
     }
 
     if path.is_dir() {
-        return Err("Directory not supported".to_string());
+        let err = log!(LogLevel::Error, "Directory not supported");
+        return Err(err);
     }
 
     let icon = utils::get_file_icon(original_path.clone());
     let icon = match icon {
         Ok(icon) => icon,
         Err(e) => {
-            println!("{}. Using default value.", e);
+            warn!("{}. Using default value.", e);
             String::new()
         }
     };
@@ -177,7 +182,9 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
     {
         let files = state.files().await;
         if files.has_file(&file_name) {
-            return Err(format!("Duplicate file names not allowed.",));
+            let err = format!("Duplicate file names not allowed.",);
+            error!("{}", err);
+            return Err(err);
         }
     }
 
@@ -199,7 +206,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
                 AddProgress::Found {
                     size: file_size, ..
                 } => {
-                    println!("Found file: {}", file_name);
+                    info!("Found file: {}", file_name);
                     size = file_size;
 
                     let payload = events::UploadFileAdded {
@@ -213,7 +220,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
                 AddProgress::Progress { offset, .. } => {
                     if throttle.is_free() {
                         let progress_percent = (offset as f32 / size as f32) * 100.0;
-                        println!("Progress: {}", progress_percent);
+                        debug!("Progress: {}", progress_percent);
                         let payload = events::UploadFileProgress {
                             path: file_name.clone(),
                             progress: progress_percent,
@@ -223,7 +230,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
                 }
                 AddProgress::Done { hash: _hash, .. } => {
                     hash = _hash;
-                    println!("File uploaded: {}", original_path);
+                    info!("File uploaded: {}", original_path);
                     let payload = events::UploadFileCompleted(file_name.clone());
                     let _ = handle.emit(events::UPLOAD_FILE_COMPLETED, payload);
                 }
@@ -235,7 +242,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
                 }
             },
             Err(e) => {
-                println!("Failed to add file: {:?}", e);
+                error!("Failed to add file: {:?}", e);
             }
         }
     }
@@ -243,7 +250,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
     let ticket = BlobTicket::new(state.iroh().node_addr.clone(), hash, BlobFormat::Raw)
         .map_err(|e| format!("Failed to create ticket: {}", e))?;
 
-    println!("Ticket created: {}", ticket);
+    info!("Ticket created: {}", ticket);
 
     {
         let mut files = state.files.lock().await;
@@ -254,6 +261,7 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
 
 #[tauri::command]
 async fn remove_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(), String> {
+    info!("Removing file: {}", path);
     let path = PathBuf::from(path);
     let name = utils::file_name_from_path(&path)?;
 
@@ -266,6 +274,7 @@ async fn internal_remove_file(
     name: &str,
     handle: &AppHandle,
 ) -> Result<(), String> {
+    info!("Removing file internally: {}", name);
     let mut files = state.files().await;
     let file = files
         .get(&name)
@@ -291,11 +300,12 @@ async fn internal_remove_file(
 
 #[tauri::command]
 async fn remove_all_files(state: State<'_>, handle: AppHandle) -> Result<(), String> {
+    info!("Removing all files");
     let mut files = state.files().await;
 
     for (_, file) in files.entries() {
         let hash = file.ticket.hash();
-        println!("File {} removed successfully", hash);
+        info!("File {} removed successfully", hash);
         state
             .iroh()
             .blobs
@@ -308,18 +318,19 @@ async fn remove_all_files(state: State<'_>, handle: AppHandle) -> Result<(), Str
             events::UploadFileRemoved(file.name.clone()),
         );
 
-        println!("Blob {} removed successfully", hash);
+        info!("Blob {} removed successfully", hash);
     }
 
     files.clear();
 
-    println!("All files removed successfully");
+    info!("All files removed successfully");
 
     Ok(())
 }
 
 #[tauri::command]
 async fn generate_ticket(state: State<'_>) -> Result<String, String> {
+    info!("Generating ticket");
     let files = state.files().await;
     let header_str = files.to_string();
 
@@ -338,6 +349,7 @@ async fn generate_ticket(state: State<'_>) -> Result<String, String> {
 
 #[tauri::command]
 async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result<(), String> {
+    info!("Downloading with ticket: {}", ticket);
     let handle = Arc::new(handle);
 
     let ticket =
@@ -370,10 +382,11 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
         let parts: Vec<&str> = line.split("\0").collect();
 
         if parts.len() != 4 {
+            warn!("Skipping line with invalid number of parts: {:?}", parts);
             continue;
         };
 
-        println!("{:?}", parts);
+        debug!("{:?}", parts);
 
         let name = parts[0].to_owned();
         let icon = parts[1].to_owned();
@@ -412,7 +425,7 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
 
     let _ = handle.emit(events::DOWNLOAD_ALL_COMPLETE, ());
 
-    print!("{}", s);
+    debug!("{}", s);
 
     Ok(())
 }
@@ -423,6 +436,7 @@ async fn download_file(
     handle: &AppHandle,
     export_dir: &PathBuf,
 ) -> Result<(), String> {
+    info!("Downloading file: {}", file.name);
     let mut size: u64 = 0;
     use DownloadProgress as DP;
     let mut throttle = utils::Throttle::new(Duration::from_millis(10));
@@ -431,14 +445,15 @@ async fn download_file(
     let dest = export_dir.join(file.name.clone());
 
     if dest.exists() {
+        let err = log!(LogLevel::Error, "File already exists");
         let _ = handle.emit(
             events::DOWNLOAD_FILE_ERROR,
             events::DownloadFileError {
                 name: file.name.clone(),
-                error: "File already exists".to_string(),
+                error: err.clone(),
             },
         );
-        return Err("File already exists".to_string());
+        return Err(err);
     }
 
     let mut r = blobs
@@ -448,28 +463,16 @@ async fn download_file(
 
     let mut last_offset = 0;
     let mut timestamp = Instant::now();
-    let mut aborted_file = "";
 
     while let Some(progress) = r.next().await {
-        if aborted_file == file.name {
-            handle.emit(
-                events::DOWNLOAD_FILE_ABORTED,
-                events::DownloadFileAborted {
-                    name: file.name.clone(),
-                    reason: "Cancelled.".to_string(),
-                },
-            );
-            return Err("Download aborted".to_string());
-        }
-
         match progress {
             Ok(p) => match p {
                 DP::FoundLocal { size: s, .. } => {
-                    println!("Found Local: {}", file.name.clone());
+                    info!("Found Local: {}", file.name.clone());
                     size = s.value();
                 }
                 DP::Found { size: s, id, .. } => {
-                    println!("Found: {}", id);
+                    info!("Found: {}", id);
                     size = s;
                 }
                 DP::Progress { offset, .. } => {
@@ -490,7 +493,7 @@ async fn download_file(
                     }
                 }
                 DP::AllDone(..) => {
-                    println!("All Done: {}", file.name);
+                    info!("All Done: {}", file.name);
                     let _ = handle.emit(
                         events::DOWNLOAD_FILE_COMPLETED,
                         events::DownloadFileCompleted(file.name.clone()),
@@ -499,13 +502,65 @@ async fn download_file(
                 }
 
                 DP::Abort(err) => {
-                    println!("Download aborted: {:?}", err);
+                    error!("Download aborted: {:?}", err);
                 }
 
-                e => println!("Unhandled download event: {:?}", e),
+                e => warn!("Unhandled download event: {:?}", e),
             },
 
-            Err(e) => println!("Error: {}", e),
+            Err(e) => error!("Error: {}", e),
+        }
+    }
+
+    while let Some(progress) = r.next().await {
+        match progress {
+            Ok(p) => match p {
+                DP::FoundLocal { size: s, .. } => {
+                    info!("Found Local: {}", file.name.clone());
+                    size = s.value();
+                }
+                DP::Found { size: s, id, .. } => {
+                    info!("Found: {}", id);
+                    size = s;
+                }
+                DP::Progress { offset, .. } => {
+                    if throttle.is_free() {
+                        let speed =
+                            (offset - last_offset) as f32 / timestamp.elapsed().as_micros() as f32;
+
+                        timestamp = Instant::now();
+                        last_offset = offset;
+
+                        let percentage = (offset as f32 / size as f32) * 100.0;
+                        let payload = events::DownloadFileProgress {
+                            name: file.name.clone(),
+                            progress: percentage,
+                            speed,
+                        };
+                        let _ = handle.emit(events::DOWNLOAD_FILE_PROGRESS, payload);
+                    }
+                }
+                DP::AllDone(..) => {
+                    info!("All Done: {}", file.name);
+                    let _ = handle.emit(
+                        events::DOWNLOAD_FILE_COMPLETED,
+                        events::DownloadFileCompleted(file.name.clone()),
+                    );
+                    break;
+                }
+
+                DP::Abort(err) => {
+                    error!("Download aborted: {:?}", err);
+                    return Err(format!("Download aborted: {:?}", err));
+                }
+
+                e => warn!("Unhandled download event: {:?}", e),
+            },
+
+            Err(e) => {
+                error!("Error during download: {}", e);
+                return Err(format!("Error during download: {}", e));
+            }
         }
     }
 
@@ -517,13 +572,14 @@ async fn download_file(
         .await
         .map_err(|e| format!("Error finishing export: {}", e))?;
 
-    println!("Exported file to: {}", file.name);
+    info!("Exported file to: {}", file.name);
     Ok(())
 }
 
 async fn setup(handle: AppHandle) -> Result<()> {
     let data_dir = handle.path().temp_dir()?.join(DATA_DIR);
     fs::create_dir_all(&data_dir)?;
+    log::info!("Data directory created at: {}", data_dir.display());
 
     let iroh = iroh::Iroh::new(data_dir).await?;
     handle.manage(AppState::new(iroh));
@@ -533,9 +589,17 @@ async fn setup(handle: AppHandle) -> Result<()> {
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([
+                    Target::new(TargetKind::Webview),
+                    Target::new(TargetKind::Webview),
+                ])
+                .build(),
+        )
+        .plugin(tauri_plugin_clipboard_manager::init()) // CLIPBOARD
+        .plugin(tauri_plugin_dialog::init()) // DIALOG
+        .plugin(tauri_plugin_opener::init()) // FILE OPENER
         .setup(|app| {
             let handle = app.handle().clone();
             #[cfg(debug_assertions)] // Only on Dev environment

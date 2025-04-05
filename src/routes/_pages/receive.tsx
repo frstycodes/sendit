@@ -73,11 +73,8 @@ function ReceivePage() {
     store.clearDownloadQueue()
 
     const downloadRes = await api.download(ticket)
+    if (downloadRes.isErr()) return
 
-    if (downloadRes.isErr()) {
-      toast.error(downloadRes.error)
-      return
-    }
     AppState.set({ isDownloading: true })
   }
 
