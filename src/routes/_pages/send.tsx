@@ -1,4 +1,4 @@
-import { api, copyText, listeners, ValidatedFile } from '@/api/tauri'
+import { api, copyText, listeners } from '@/api/tauri'
 import { AnimatedCheckMark } from '@/components/animated-checkmark'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/send')({
   component: SendPage,
@@ -19,15 +20,15 @@ export const Route = createFileRoute('/_pages/send')({
 
 function SendPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const [draggedItems, setDraggedItems] = useState<ValidatedFile[]>([])
-  const dragging = draggedItems.length > 0
 
   const store = AppState.use(
+    'uploadDraggedItems',
     'uploadQueue',
     'addToUploadQueue',
     'updateUploadQueueItemProgress',
     'removeFromUploadQueue',
   )
+  const dragging = store.uploadDraggedItems.length > 0
 
   useEffect(() => {
     const throttle = new Throttle(32)
@@ -36,9 +37,8 @@ function SendPage() {
       [events.UPLOAD_FILE_ADDED]: (event) => {
         /*  We are clearing this here to prevent the empty message to flicker after drag-drop
          event when the items are cleared and until the file is received from backend. */
-        setDraggedItems([])
+        AppState.set({ uploadDraggedItems: [] })
         const item = event.payload as events.UploadFileAdded as UploadQueueItem
-        console.log(item)
         item.progress = 0
         store.addToUploadQueue(item)
       },
@@ -72,24 +72,17 @@ function SendPage() {
         const files = filesRes.value.filter(
           (file) => !uploadQueueSet.has(file.name),
         )
-        setDraggedItems(files)
+
+        AppState.set({ uploadDraggedItems: files })
         scrollAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
       },
 
       'tauri://drag-leave': () => {
-        setDraggedItems([])
+        AppState.set({ uploadDraggedItems: [] })
       },
 
-      'tauri://drag-drop': async (event) => {
-        const uploadQueueSet = new Set(
-          AppState.get().uploadQueue.map((i) => i.name),
-        )
-        const paths = event.payload.paths as string[]
-        const files = await api.validateFiles(paths)
-        if (files.isErr()) return
-
-        for (const file of files.value) {
-          if (uploadQueueSet.has(file.name)) continue
+      'tauri://drag-drop': async () => {
+        for (const file of AppState.get().uploadDraggedItems.reverse()) {
           api.addFile(file.path)
         }
       },
@@ -145,7 +138,7 @@ function SendPage() {
                 </div>
               </motion.div>
             )}
-            {draggedItems.map((item) => {
+            {store.uploadDraggedItems.map((item) => {
               const queueItem: UploadQueueItem = {
                 ...item,
                 progress: 0,
@@ -205,6 +198,10 @@ function CopyTicketButton() {
     if (copyRes.isErr()) return
 
     setCopied(true)
+    toast.success('Ticket copied to clipboard', {
+      position: 'top-left',
+      richColors: true,
+    })
     await sleep(1000)
     setCopied(false)
   }

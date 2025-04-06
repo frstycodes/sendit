@@ -6,6 +6,7 @@ mod utils;
 
 use anyhow::Result;
 
+use ::iroh::NodeAddr;
 use iroh::BlobsClient;
 use serde::Serialize;
 use std::{
@@ -22,8 +23,7 @@ use tokio::sync::{Mutex, MutexGuard};
 use tracing::{debug, error, info, warn};
 
 use iroh_blobs::{
-    get::db::DownloadProgress, provider::AddProgress, store::ExportFormat, ticket::BlobTicket,
-    BlobFormat, Hash,
+    get::db::DownloadProgress, provider::AddProgress, store::ExportFormat, ticket::BlobTicket, Hash,
 };
 use iroh_blobs::{rpc::client::blobs::WrapOption, store::ExportMode, util::SetTagOption};
 use n0_future::stream::StreamExt;
@@ -37,6 +37,7 @@ type State<'a> = tauri::State<'a, AppState>;
 pub struct AppState {
     iroh: iroh::Iroh,
     files: Mutex<files::Files>,
+    header_tickets: Mutex<Vec<BlobTicket>>,
 }
 
 impl AppState {
@@ -44,6 +45,7 @@ impl AppState {
         Self {
             iroh,
             files: Mutex::new(files::Files::new()),
+            header_tickets: Mutex::new(Vec::new()),
         }
     }
 
@@ -247,14 +249,9 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
         }
     }
 
-    let ticket = BlobTicket::new(state.iroh().node_addr.clone(), hash, BlobFormat::Raw)
-        .map_err(|e| format!("Failed to create ticket: {}", e))?;
-
-    info!("Ticket created: {}", ticket);
-
     {
         let mut files = state.files.lock().await;
-        files.add_file(file_name, icon, size, ticket);
+        files.add_file(file_name, icon, size, hash);
     }
     Ok(())
 }
@@ -280,12 +277,10 @@ async fn internal_remove_file(
         .get(&name)
         .ok_or_else(|| format!("File not found: {}", name))?;
 
-    let hash = file.ticket.hash();
-
     state
         .iroh()
         .blobs
-        .delete_blob(hash)
+        .delete_blob(file.hash)
         .await
         .map_err(|e| format!("Failed to delete blob: {}", e))?;
 
@@ -304,12 +299,10 @@ async fn remove_all_files(state: State<'_>, handle: AppHandle) -> Result<(), Str
     let mut files = state.files().await;
 
     for (_, file) in files.entries() {
-        let hash = file.ticket.hash();
-        info!("File {} removed successfully", hash);
         state
             .iroh()
             .blobs
-            .delete_blob(hash)
+            .delete_blob(file.hash)
             .await
             .map_err(|e| format!("Failed to delete blob: {}", e))?;
 
@@ -318,7 +311,18 @@ async fn remove_all_files(state: State<'_>, handle: AppHandle) -> Result<(), Str
             events::UploadFileRemoved(file.name.clone()),
         );
 
-        info!("Blob {} removed successfully", hash);
+        info!("File {} removed successfully", file.hash);
+    }
+
+    // Remove all generated header files
+    for ticket in state.header_tickets.lock().await.iter() {
+        state
+            .iroh()
+            .blobs
+            .delete_blob(ticket.hash())
+            .await
+            .map_err(|e| format!("Failed to delete blob: {}", e))?;
+        info!("Ticket {} removed successfully", ticket);
     }
 
     files.clear();
@@ -344,6 +348,9 @@ async fn generate_ticket(state: State<'_>) -> Result<String, String> {
     let ticket = BlobTicket::new(state.iroh().node_addr.clone(), res.hash, res.format)
         .map_err(|e| format!("Failed to create ticket: {}", e))?;
 
+    let mut tickets = state.header_tickets.lock().await;
+    tickets.push(ticket.clone());
+
     Ok(ticket.to_string())
 }
 
@@ -355,10 +362,11 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
     let ticket =
         BlobTicket::from_str(&ticket).map_err(|e| format!("Failed to parse ticket: {}", e))?;
 
+    let node_addr = ticket.node_addr().clone();
     let blobs = Arc::new(state.iroh().blobs.clone());
 
     blobs
-        .download(ticket.hash(), ticket.node_addr().clone())
+        .download(ticket.hash(), node_addr.clone())
         .await
         .map_err(|e| format!("Failed to download header file: {}", e))?
         .finish()
@@ -393,7 +401,7 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
         let size: u64 = parts[2]
             .parse()
             .map_err(|e| format!("Failed to parse file size: {}", e))?;
-        let ticket: BlobTicket = parts[3]
+        let hash: iroh_blobs::Hash = parts[3]
             .parse()
             .map_err(|e| format!("Failed to parse file ticket: {}", e))?;
 
@@ -401,7 +409,7 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
             name: name.clone(),
             icon: String::new(), // we don't need icon for download task
             size: size.clone(),
-            ticket,
+            hash,
         };
 
         // Emit event to notify UI about new download
@@ -409,11 +417,12 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
         let _ = handle.clone().emit(events::DOWNLOAD_FILE_ADDED, payload);
 
         let blobs = Arc::clone(&blobs);
+        let node_addr = node_addr.clone();
         let export_dir = Arc::clone(&export_dir);
         let handle = Arc::clone(&handle);
 
         let task = tokio::spawn(async move {
-            let _ = download_file(&blobs, file, &handle, &export_dir).await;
+            let _ = download_file(&blobs, node_addr, file, &export_dir, &handle).await;
         });
 
         tasks.push(task);
@@ -432,15 +441,15 @@ async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result
 
 async fn download_file(
     blobs: &BlobsClient,
+    node_addr: NodeAddr,
     file: files::File,
-    handle: &AppHandle,
     export_dir: &PathBuf,
+    handle: &AppHandle,
 ) -> Result<(), String> {
     info!("Downloading file: {}", file.name);
     let mut size: u64 = 0;
     use DownloadProgress as DP;
     let mut throttle = utils::Throttle::new(Duration::from_millis(10));
-    let ticket = &file.ticket;
 
     let dest = export_dir.join(file.name.clone());
 
@@ -457,7 +466,7 @@ async fn download_file(
     }
 
     let mut r = blobs
-        .download(ticket.hash(), ticket.node_addr().clone())
+        .download(file.hash, node_addr)
         .await
         .map_err(|e| format!("Failed to download file: {}", e))?;
 
@@ -512,60 +521,8 @@ async fn download_file(
         }
     }
 
-    while let Some(progress) = r.next().await {
-        match progress {
-            Ok(p) => match p {
-                DP::FoundLocal { size: s, .. } => {
-                    info!("Found Local: {}", file.name.clone());
-                    size = s.value();
-                }
-                DP::Found { size: s, id, .. } => {
-                    info!("Found: {}", id);
-                    size = s;
-                }
-                DP::Progress { offset, .. } => {
-                    if throttle.is_free() {
-                        let speed =
-                            (offset - last_offset) as f32 / timestamp.elapsed().as_micros() as f32;
-
-                        timestamp = Instant::now();
-                        last_offset = offset;
-
-                        let percentage = (offset as f32 / size as f32) * 100.0;
-                        let payload = events::DownloadFileProgress {
-                            name: file.name.clone(),
-                            progress: percentage,
-                            speed,
-                        };
-                        let _ = handle.emit(events::DOWNLOAD_FILE_PROGRESS, payload);
-                    }
-                }
-                DP::AllDone(..) => {
-                    info!("All Done: {}", file.name);
-                    let _ = handle.emit(
-                        events::DOWNLOAD_FILE_COMPLETED,
-                        events::DownloadFileCompleted(file.name.clone()),
-                    );
-                    break;
-                }
-
-                DP::Abort(err) => {
-                    error!("Download aborted: {:?}", err);
-                    return Err(format!("Download aborted: {:?}", err));
-                }
-
-                e => warn!("Unhandled download event: {:?}", e),
-            },
-
-            Err(e) => {
-                error!("Error during download: {}", e);
-                return Err(format!("Error during download: {}", e));
-            }
-        }
-    }
-
     blobs
-        .export(ticket.hash(), dest, ExportFormat::Blob, ExportMode::Copy)
+        .export(file.hash, dest, ExportFormat::Blob, ExportMode::Copy)
         .await
         .map_err(|e| format!("Error exporting file: {}", e))?
         .finish()

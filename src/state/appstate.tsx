@@ -1,5 +1,6 @@
-import { create } from 'zustand'
+import { ValidatedFile } from '@/api/tauri'
 import { createSelector } from '@/lib/zustand'
+import { create } from 'zustand'
 
 export type DownloadQueueItem = {
   name: string
@@ -22,6 +23,7 @@ type AppState = {
 
   downloadQueue: DownloadQueueItem[]
   uploadQueue: UploadQueueItem[]
+  uploadDraggedItems: ValidatedFile[]
 
   uploadProgressMap: Record<string, number>
   downloadProgressMap: Record<string, ProgressVal>
@@ -47,6 +49,7 @@ const store = create<AppState>((set) => ({
 
   downloadQueue: [],
   uploadQueue: [],
+  uploadDraggedItems: [],
 
   uploadProgressMap: {},
   downloadProgressMap: {},

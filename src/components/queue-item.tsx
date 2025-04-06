@@ -1,3 +1,4 @@
+import { revealItemInDir } from '@/api/tauri'
 import { bytesToString, getFileIcon } from '@/lib/utils'
 import { DownloadQueueItem, UploadQueueItem } from '@/state/appstate'
 import { EllipsisVertical } from 'lucide-react'
@@ -11,7 +12,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { revealItemInDir } from '@/api/tauri'
 
 export type QueueItemProps = {
   item: UploadQueueItem | DownloadQueueItem
@@ -32,7 +32,13 @@ function Internal__QueueItem({
   const hasPath = 'path' in item
   const fileType = name.split('.').pop()?.toLowerCase() || ''
 
-  const iconEl = icon ? <img src={icon} /> : getFileIcon(fileType)
+  const iconEl = icon ? (
+    <div className='aspect-square w-10'>
+      <img src={icon} />
+    </div>
+  ) : (
+    getFileIcon(fileType)
+  )
 
   return (
     <motion.div
