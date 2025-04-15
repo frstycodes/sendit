@@ -11,6 +11,7 @@ import * as log from '@tauri-apps/plugin-log'
 import { revealItemInDir as tauri__revealItemInDir } from '@tauri-apps/plugin-opener'
 import { err, ok, Result } from 'neverthrow'
 import { toast } from 'sonner'
+import * as events from '@/config/events'
 
 export async function revealItemInDir(
   path: string,
@@ -41,6 +42,7 @@ async function invoke<T>(
     return ok(res)
   } catch (error) {
     let e = error as string
+    console.log(e)
     toast.error(e)
     log.error(e)
     return err(e)
@@ -80,6 +82,13 @@ export function listeners(
   }
 }
 
+type DownloadFile = {
+  name: string
+  icon: string
+  size: number
+  hash: string
+}
+
 export const api = {
   /**
    * Clean up the database directory.
@@ -116,10 +125,18 @@ export const api = {
   generateTicket: () => invoke<string>('generate_ticket'),
 
   /**
-   * Download files using a doc ticket.
+   * Download header file using a doc ticket.
    * @param ticket - The doc ticket to use for downloading.
    */
-  download: (ticket: string) => invoke<void>('download', { ticket }),
+  downloadHeader: (ticket: string) =>
+    invoke<DownloadFile[]>('download_header', { ticket }),
+
+  /**
+   * Download file.
+   * @param file - The file to download.
+   */
+  downloadFile: (file: DownloadFile) =>
+    invoke<void>('download_header', { file }),
 
   getFileIcon: (path: string) => invoke<string>('get_file_icon', { path }),
 
@@ -127,7 +144,5 @@ export const api = {
    * Abort a download using a doc ticket.
    * @param ticket - The doc ticket to use for aborting.
    */
-  abortDownload: () => {
-    emit('test', { name: 'John', age: 30 })
-  },
+  abortDownload: (name: string) => emit(events.CANCEL_DOWNLOAD, name),
 }

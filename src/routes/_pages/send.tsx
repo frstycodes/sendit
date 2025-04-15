@@ -51,12 +51,12 @@ function SendPage() {
       },
 
       [events.UPLOAD_FILE_COMPLETED]: (event) => {
-        const name = event.payload as events.UploadFileCompleted
+        const { name } = event.payload as events.UploadFileCompleted
         store.updateUploadQueueItemProgress(name, 100)
       },
 
       [events.UPLOAD_FILE_REMOVED]: (event) => {
-        const name = event.payload as events.UploadFileRemoved
+        const { name } = event.payload as events.UploadFileRemoved
         store.removeFromUploadQueue(name)
       },
 

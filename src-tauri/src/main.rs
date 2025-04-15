@@ -6,10 +6,10 @@ mod utils;
 
 use anyhow::Result;
 
-use ::iroh::NodeAddr;
 use iroh::BlobsClient;
 use serde::Serialize;
 use std::{
+    collections::HashMap,
     fs,
     path::PathBuf,
     str::FromStr,
@@ -27,7 +27,7 @@ use iroh_blobs::{
 };
 use iroh_blobs::{rpc::client::blobs::WrapOption, store::ExportMode, util::SetTagOption};
 use n0_future::stream::StreamExt;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
 
 mod files;
 
@@ -157,30 +157,10 @@ fn validate_file(path: &str) -> Result<ValidatedFile, String> {
 async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(), String> {
     info!("Adding file: {}", path);
     let original_path = path.clone();
-    let path = PathBuf::from(path)
-        .canonicalize()
-        .map_err(|e| format!("Failed to canonicalize path: {:?}", e))?;
-
-    if !path.exists() {
-        let err = log!(LogLevel::Error, "File does not exist at path");
-        return Err(err);
-    }
-
-    if path.is_dir() {
-        let err = log!(LogLevel::Error, "Directory not supported");
-        return Err(err);
-    }
-
-    let icon = utils::get_file_icon(original_path.clone());
-    let icon = match icon {
-        Ok(icon) => icon,
-        Err(e) => {
-            warn!("{}. Using default value.", e);
-            String::new()
-        }
-    };
+    let path = utils::validate_file_path(path)?;
     let file_name = utils::file_name_from_path(&path)?;
 
+    // New Block to not freeze the lock unnecessarily
     {
         let files = state.files().await;
         if files.has_file(&file_name) {
@@ -189,6 +169,15 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
             return Err(err);
         }
     }
+
+    let icon = utils::get_file_icon(original_path.clone());
+    let icon = match icon {
+        Ok(i) => i,
+        Err(e) => {
+            warn!("{}. Using default value.", e);
+            String::new()
+        }
+    };
 
     let mut r = state
         .iroh()
@@ -201,7 +190,6 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
     let mut throttle = utils::Throttle::new(Duration::from_millis(32));
 
     let mut hash: Hash = Hash::EMPTY;
-
     while let Some(progress) = r.next().await {
         match progress {
             Ok(p) => match p {
@@ -233,7 +221,9 @@ async fn add_file(state: State<'_>, path: String, handle: AppHandle) -> Result<(
                 AddProgress::Done { hash: _hash, .. } => {
                     hash = _hash;
                     info!("File uploaded: {}", original_path);
-                    let payload = events::UploadFileCompleted(file_name.clone());
+                    let payload = events::UploadFileCompleted {
+                        name: file_name.clone(),
+                    };
                     let _ = handle.emit(events::UPLOAD_FILE_COMPLETED, payload);
                 }
                 AddProgress::Abort { .. } => {
@@ -287,7 +277,9 @@ async fn internal_remove_file(
     files.remove_file(&name);
     let _ = handle.emit(
         events::UPLOAD_FILE_REMOVED,
-        events::UploadFileRemoved(name.to_owned()),
+        events::UploadFileRemoved {
+            name: name.to_owned(),
+        },
     );
 
     Ok(())
@@ -308,7 +300,9 @@ async fn remove_all_files(state: State<'_>, handle: AppHandle) -> Result<(), Str
 
         let _ = handle.emit(
             events::UPLOAD_FILE_REMOVED,
-            events::UploadFileRemoved(file.name.clone()),
+            events::UploadFileRemoved {
+                name: file.name.clone(),
+            },
         );
 
         info!("File {} removed successfully", file.hash);
@@ -355,104 +349,122 @@ async fn generate_ticket(state: State<'_>) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn download(state: State<'_>, ticket: String, handle: AppHandle) -> Result<(), String> {
+async fn download_header(
+    state: State<'_>,
+    ticket: String,
+    handle: AppHandle,
+) -> Result<(), String> {
     info!("Downloading with ticket: {}", ticket);
     let handle = Arc::new(handle);
 
     let ticket =
         BlobTicket::from_str(&ticket).map_err(|e| format!("Failed to parse ticket: {}", e))?;
 
-    let node_addr = ticket.node_addr().clone();
-    let blobs = Arc::new(state.iroh().blobs.clone());
-
-    blobs
-        .download(ticket.hash(), node_addr.clone())
-        .await
-        .map_err(|e| format!("Failed to download header file: {}", e))?
-        .finish()
-        .await
-        .map_err(|e| format!("Failed to finish downloading header file: {}", e))?;
-
-    let bytes = blobs
-        .read_to_bytes(ticket.hash())
-        .await
-        .map_err(|e| format!("Failed to read bytes: {}", e))?;
-
-    let s = String::from_utf8(bytes.to_vec())
-        .map_err(|e| format!("Failed to convert bytes to string: {}", e))?;
-
-    let mut tasks = Vec::new();
+    #[allow(unused_assignments)]
+    let mut blobs = Arc::new(state.iroh().blobs.clone());
     let export_dir = Arc::new(utils::get_download_dir(&handle)?);
 
-    let lines = s.lines();
+    #[cfg(debug_assertions)]
+    {
+        let data_dir = handle
+            .path()
+            .download_dir()
+            .map_err(|e| format!("Failed to get download directory: {}", e))?
+            .join(".sendit");
 
-    for line in lines {
-        let parts: Vec<&str> = line.split("\0").collect();
+        let iroh = iroh::Iroh::new(data_dir)
+            .await
+            .map_err(|e| format!("Failed to initialize Iroh: {}", e))?;
+        blobs = Arc::new(iroh.blobs.clone());
+    }
 
-        if parts.len() != 4 {
-            warn!("Skipping line with invalid number of parts: {:?}", parts);
-            continue;
+    // Download and read the header file
+    let header_content = utils::download_and_read_header(&blobs, ticket).await?;
+
+    let handles = std::sync::Mutex::new(HashMap::new());
+    let mut tasks = Vec::new();
+
+    for (_, file) in files::Files::from(header_content).drain() {
+        let payload = events::DownloadFileAdded {
+            name: file.name.clone(),
+            icon: file.icon.clone(),
+            size: file.size.clone(),
         };
+        handle.emit(events::DOWNLOAD_FILE_ADDED, payload).ok();
 
-        debug!("{:?}", parts);
-
-        let name = parts[0].to_owned();
-        let icon = parts[1].to_owned();
-        let size: u64 = parts[2]
-            .parse()
-            .map_err(|e| format!("Failed to parse file size: {}", e))?;
-        let hash: iroh_blobs::Hash = parts[3]
-            .parse()
-            .map_err(|e| format!("Failed to parse file ticket: {}", e))?;
-
-        let file = files::File {
-            name: name.clone(),
-            icon: String::new(), // we don't need icon for download task
-            size: size.clone(),
-            hash,
-        };
-
-        // Emit event to notify UI about new download
-        let payload = events::DownloadFileAdded { name, icon, size };
-        let _ = handle.clone().emit(events::DOWNLOAD_FILE_ADDED, payload);
-
-        let blobs = Arc::clone(&blobs);
-        let node_addr = node_addr.clone();
         let export_dir = Arc::clone(&export_dir);
         let handle = Arc::clone(&handle);
+        let file_clone = file.clone();
 
+        // Spawn a new task for each file download
         let task = tokio::spawn(async move {
-            let _ = download_file(&blobs, node_addr, file, &export_dir, &handle).await;
+            let name = file_clone.name.clone();
+            if let Err(error) = download_file(&handle, file_clone, &export_dir).await {
+                error!("Failed to download file: {}", error);
+                let payload = events::DownloadFileError { name, error };
+                handle.emit(events::DOWNLOAD_FILE_ERROR, payload).ok();
+            };
         });
+
+        // Store the abort handler for the task in a map
+        let handle = task.abort_handle();
+        handles
+            .lock()
+            .map_err(|e| format!("Failed to lock handles: {}", e))?
+            .insert(file.name.clone(), handle);
 
         tasks.push(task);
     }
 
+    // Listen for cancel download events
+    let handle_for_listener = Arc::clone(&handle);
+    let listener = handle.listen(events::CANCEL_DOWNLOAD, move |event| {
+        let filename = event.payload().replace("\"", "");
+        println!("Removing file: {}", filename);
+        if let Ok(mut handles) = handles.lock() {
+            if let Some(handle) = handles.remove(&filename) {
+                handle.abort();
+                let payload = events::DownloadFileAborted {
+                    name: filename.clone(),
+                    reason: "Cancelled by user".to_string(),
+                };
+                handle_for_listener
+                    .emit(events::DOWNLOAD_FILE_ABORTED, payload.clone())
+                    .ok();
+                info!("Download cancelled for file: {}", filename);
+            }
+        }
+    });
+
+    // Wait for all tasks to complete
     for task in tasks {
-        task.await.map_err(|e| format!("Task failed: {}", e))?;
+        if let Err(err) = task.await {
+            error!("Failed to await task: {}", err);
+        }
     }
 
-    let _ = handle.emit(events::DOWNLOAD_ALL_COMPLETE, ());
+    // Emit downloads completion event
+    handle
+        .emit(events::DOWNLOAD_ALL_COMPLETE, ())
+        .map_err(|e| format!("Failed to emit completion event: {}", e))?;
 
-    debug!("{}", s);
-
+    // Unlisten to the cancel download event
+    handle.unlisten(listener);
     Ok(())
 }
 
 async fn download_file(
-    blobs: &BlobsClient,
-    node_addr: NodeAddr,
+    handle: &AppHandle,
     file: files::File,
     export_dir: &PathBuf,
-    handle: &AppHandle,
 ) -> Result<(), String> {
-    info!("Downloading file: {}", file.name);
-    let mut size: u64 = 0;
-    use DownloadProgress as DP;
-    let mut throttle = utils::Throttle::new(Duration::from_millis(10));
+    info!("Started downloading file: {}", file.name);
+    let state = handle.state::<AppState>();
+    let iroh = state.iroh();
+    let node_addr = iroh.node_addr.clone();
+    let dest = export_dir.join(&file.name);
 
-    let dest = export_dir.join(file.name.clone());
-
+    // Check if file exists before starting download
     if dest.exists() {
         let err = log!(LogLevel::Error, "File already exists");
         let _ = handle.emit(
@@ -465,33 +477,45 @@ async fn download_file(
         return Err(err);
     }
 
-    let mut r = blobs
+    let mut r = iroh
+        .blobs
         .download(file.hash, node_addr)
         .await
         .map_err(|e| format!("Failed to download file: {}", e))?;
 
     let mut last_offset = 0;
     let mut timestamp = Instant::now();
+    let mut size: u64 = 0;
+    let mut throttle = utils::Throttle::new(Duration::from_millis(100)); // Reduced UI update frequency
 
+    use DownloadProgress as DP;
     while let Some(progress) = r.next().await {
         match progress {
             Ok(p) => match p {
                 DP::FoundLocal { size: s, .. } => {
-                    info!("Found Local: {}", file.name.clone());
+                    info!("Found Local: {}", file.name);
                     size = s.value();
                 }
+
                 DP::Found { size: s, id, .. } => {
                     info!("Found: {}", id);
                     size = s;
                 }
-                DP::Progress { offset, .. } => {
-                    if throttle.is_free() {
-                        let speed =
-                            (offset - last_offset) as f32 / timestamp.elapsed().as_micros() as f32;
 
-                        timestamp = Instant::now();
-                        last_offset = offset;
+                DP::Progress { offset, .. } if throttle.is_free() => {
+                    // Only update UI at throttled intervals to improve performance
+                    let now = Instant::now();
+                    let elapsed = timestamp.elapsed();
+                    let speed = if elapsed.as_micros() > 0 {
+                        (offset - last_offset) as f32 / elapsed.as_micros() as f32
+                    } else {
+                        0.0
+                    };
+                    timestamp = now;
+                    last_offset = offset;
 
+                    // Calculate progress percentage and emit event
+                    if size > 0 {
                         let percentage = (offset as f32 / size as f32) * 100.0;
                         let payload = events::DownloadFileProgress {
                             name: file.name.clone(),
@@ -501,27 +525,30 @@ async fn download_file(
                         let _ = handle.emit(events::DOWNLOAD_FILE_PROGRESS, payload);
                     }
                 }
+
                 DP::AllDone(..) => {
                     info!("All Done: {}", file.name);
-                    let _ = handle.emit(
-                        events::DOWNLOAD_FILE_COMPLETED,
-                        events::DownloadFileCompleted(file.name.clone()),
-                    );
                     break;
-                }
-
-                DP::Abort(err) => {
-                    error!("Download aborted: {:?}", err);
                 }
 
                 e => warn!("Unhandled download event: {:?}", e),
             },
 
-            Err(e) => error!("Error: {}", e),
+            Err(e) => {
+                let _ = handle.emit(
+                    events::DOWNLOAD_FILE_ERROR,
+                    events::DownloadFileError {
+                        name: file.name.clone(),
+                        error: e.to_string(),
+                    },
+                );
+                return Err(format!("Error during download: {}", e));
+            }
         }
     }
 
-    blobs
+    // Export the downloaded file
+    iroh.blobs
         .export(file.hash, dest, ExportFormat::Blob, ExportMode::Copy)
         .await
         .map_err(|e| format!("Error exporting file: {}", e))?
@@ -530,6 +557,15 @@ async fn download_file(
         .map_err(|e| format!("Error finishing export: {}", e))?;
 
     info!("Exported file to: {}", file.name);
+
+    // Emit completion event
+    let _ = handle.emit(
+        events::DOWNLOAD_FILE_COMPLETED,
+        events::DownloadFileCompleted {
+            name: file.name.clone(),
+        },
+    );
+
     Ok(())
 }
 
@@ -579,7 +615,7 @@ fn main() {
             remove_file,
             remove_all_files,
             validate_files,
-            download,
+            download_header,
             generate_ticket,
         ])
         .run(tauri::generate_context!())

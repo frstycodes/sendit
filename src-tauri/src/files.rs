@@ -1,8 +1,12 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    str::FromStr,
+};
 
 use iroh_blobs::Hash;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct File {
     pub name: String,
     pub icon: String,
@@ -10,7 +14,22 @@ pub struct File {
     pub hash: Hash,
 }
 
+#[derive(Debug, Clone)]
 pub struct Files(HashMap<String, File>);
+
+impl Deref for Files {
+    type Target = HashMap<String, File>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Files {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl Files {
     pub fn new() -> Self {
@@ -60,5 +79,30 @@ impl ToString for Files {
         }
 
         str
+    }
+}
+
+impl From<String> for Files {
+    fn from(value: String) -> Self {
+        let mut files = Files::new();
+
+        for line in value.lines() {
+            let parts: Vec<&str> = line.split('\0').collect();
+            if parts.len() == 4 {
+                let name = parts[0].to_string();
+                let icon = parts[1].to_string();
+                let size = parts[2].parse().unwrap_or(0);
+                let hash = Hash::from_str(parts[3]).unwrap_or_else(|_| Hash::EMPTY);
+                files.add_file(name, icon, size, hash);
+            }
+        }
+
+        files
+    }
+}
+
+impl From<&str> for Files {
+    fn from(value: &str) -> Self {
+        Files::from(value.to_string())
     }
 }

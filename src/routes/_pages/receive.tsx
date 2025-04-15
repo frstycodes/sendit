@@ -2,6 +2,7 @@ import { api, listeners } from '@/api/tauri'
 import { Loader } from '@/components/loader'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
@@ -47,7 +48,7 @@ function ReceivePage() {
       },
 
       [events.DOWNLOAD_FILE_COMPLETED]: (ev) => {
-        let name = ev.payload as events.DownloadFileCompleted
+        let { name } = ev.payload as events.DownloadFileCompleted
         store.updateDownloadQueueItemProgress(name, 100, 0)
       },
 
@@ -62,6 +63,13 @@ function ReceivePage() {
           description: name,
         })
       },
+      [events.DOWNLOAD_FILE_ABORTED]: (ev) => {
+        let { name } = ev.payload as events.DownloadFileAborted
+        store.removeFromDownloadQueue(name)
+        toast('Download canceled', {
+          description: name,
+        })
+      },
     })
     return unsub
   }, [])
@@ -72,8 +80,21 @@ function ReceivePage() {
 
     store.clearDownloadQueue()
 
-    const downloadRes = await api.download(ticket)
+    const downloadRes = await api.downloadHeader(ticket)
     if (downloadRes.isErr()) return
+
+    const files = downloadRes.value
+
+    for (const file of files) {
+      api.downloadFile(file).then((res) => {
+        if (res.isOk()) return
+
+        store.removeFromDownloadQueue(file.name)
+        toast.error(res.error, {
+          description: file.name,
+        })
+      })
+    }
 
     AppState.set({ isDownloading: true })
   }
@@ -105,6 +126,16 @@ function ReceivePage() {
               <QueueItem
                 key={item.name}
                 item={item}
+                dropdownContent={
+                  item.progress < 100 && (
+                    <DropdownMenuItem
+                      onClick={() => api.abortDownload(item.name)}
+                      className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
+                    >
+                      Cancel
+                    </DropdownMenuItem>
+                  )
+                }
                 doneLabel='Download complete'
               />
             ))}
