@@ -4,8 +4,6 @@ mod events;
 mod iroh;
 mod utils;
 
-use anyhow::Result;
-
 use iroh::BlobsClient;
 use serde::Serialize;
 use std::{
@@ -59,10 +57,7 @@ impl AppState {
 }
 
 #[tauri::command]
-async fn clean_up(
-    state: tauri::State<'_, AppState>,
-    handle: AppHandle,
-) -> anyhow::Result<(), String> {
+async fn clean_up(state: tauri::State<'_, AppState>, handle: AppHandle) -> Result<(), String> {
     let data_dir = handle
         .path()
         .temp_dir()
@@ -569,7 +564,7 @@ async fn download_file(
     Ok(())
 }
 
-async fn setup(handle: AppHandle) -> Result<()> {
+async fn setup(handle: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = handle.path().temp_dir()?.join(DATA_DIR);
     fs::create_dir_all(&data_dir)?;
     log::info!("Data directory created at: {}", data_dir.display());

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
 use iroh::{protocol::Router, NodeAddr};
 use quic_rpc::transport::flume::FlumeConnector;
+use tauri::Error;
 
 pub(crate) type BlobsClient = iroh_blobs::rpc::client::blobs::Client<
     FlumeConnector<iroh_blobs::rpc::proto::Response, iroh_blobs::rpc::proto::Request>,
@@ -17,7 +17,7 @@ pub(crate) struct Iroh {
 }
 
 impl Iroh {
-    pub async fn new(path: PathBuf) -> Result<Self> {
+    pub async fn new(path: PathBuf) -> Result<Self, Error> {
         // create dir if it doesn't already exist
         tokio::fs::create_dir_all(&path).await?;
 
@@ -46,7 +46,7 @@ impl Iroh {
     }
 
     #[allow(dead_code)]
-    pub(crate) async fn shutdown(&self) -> Result<()> {
-        self.router.shutdown().await
+    pub(crate) async fn shutdown(&self) -> Result<(), String> {
+        self.router.shutdown().await.map_err(|e| e.to_string())
     }
 }
