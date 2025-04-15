@@ -1,21 +1,25 @@
-import { api } from '@/api/tauri'
+import { api, listeners } from '@/api/tauri'
 import { Loader } from '@/components/loader'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import * as events from '@/config/events'
-import { listeners } from '@/lib/utils'
+import { Throttle } from '@/lib/utils'
 import { AppState, DownloadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
 import { motion } from 'motion/react'
 import { useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/receive')({
   component: ReceivePage,
 })
 
 function ReceivePage() {
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const store = AppState.use(
     'isDownloading',
     'clearDownloadQueue',
@@ -26,6 +30,8 @@ function ReceivePage() {
   )
 
   useEffect(() => {
+    const throttle = new Throttle(1000)
+
     const unsub = listeners({
       [events.DOWNLOAD_FILE_ADDED]: (ev) => {
         const item = ev.payload as events.DownloadFileAdded as DownloadQueueItem
@@ -34,36 +40,70 @@ function ReceivePage() {
       },
 
       [events.DOWNLOAD_FILE_PROGRESS]: (ev) => {
-        let { name, progress } = ev.payload as events.DownloadFileProgress
-        store.updateDownloadQueueItemProgress(name, progress)
+        let { name, progress, speed } =
+          ev.payload as events.DownloadFileProgress
+        if (throttle.isFree(name)) {
+          store.updateDownloadQueueItemProgress(name, progress, speed)
+        }
       },
 
       [events.DOWNLOAD_FILE_COMPLETED]: (ev) => {
-        let name = ev.payload as events.DownloadFileCompleted
-        store.updateDownloadQueueItemProgress(name, 100)
+        let { name } = ev.payload as events.DownloadFileCompleted
+        store.updateDownloadQueueItemProgress(name, 100, 0)
       },
 
       [events.DOWNLOAD_ALL_COMPLETE]: () => {
         AppState.set({ isDownloading: false })
       },
+
+      [events.DOWNLOAD_FILE_ERROR]: (ev) => {
+        let { name, error } = ev.payload as events.DownloadFileError
+        store.removeFromDownloadQueue(name)
+        toast.error(error, {
+          description: name,
+        })
+      },
+      [events.DOWNLOAD_FILE_ABORTED]: (ev) => {
+        let { name } = ev.payload as events.DownloadFileAborted
+        store.removeFromDownloadQueue(name)
+        toast('Download canceled', {
+          description: name,
+        })
+      },
     })
     return unsub
   }, [])
 
-  const inputRef = useRef<HTMLInputElement>(null)
-  const handleDownload = () => {
+  async function download() {
     const ticket = inputRef.current?.value
     if (!ticket) return
 
     store.clearDownloadQueue()
-    api.download(ticket).catch(console.error)
+
+    const downloadRes = await api.downloadHeader(ticket)
+    if (downloadRes.isErr()) return
+
+    const files = downloadRes.value
+
+    for (const file of files) {
+      api.downloadFile(file).then((res) => {
+        if (res.isOk()) return
+
+        store.removeFromDownloadQueue(file.name)
+        toast.error(res.error, {
+          description: file.name,
+        })
+      })
+    }
+
     AppState.set({ isDownloading: true })
   }
+
   return (
     <div className='flex flex-1 flex-col overflow-y-hidden'>
       <div className='mb-4 flex flex-col gap-2'>
         <Input ref={inputRef} placeholder='Enter ticket' />
-        <Button onClick={handleDownload}>
+        <Button onClick={download}>
           {store.isDownloading && (
             <motion.div
               className='size-4! animate-in'
@@ -86,6 +126,16 @@ function ReceivePage() {
               <QueueItem
                 key={item.name}
                 item={item}
+                dropdownContent={
+                  item.progress < 100 && (
+                    <DropdownMenuItem
+                      onClick={() => api.abortDownload(item.name)}
+                      className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
+                    >
+                      Cancel
+                    </DropdownMenuItem>
+                  )
+                }
                 doneLabel='Download complete'
               />
             ))}

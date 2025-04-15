@@ -32,9 +32,9 @@ function RouteComponent() {
   const { title, description } =
     routeTitleMap[location.pathname as ValidRoutes]!
   return (
-    <main className='flex overflow-y-hidden flex-1 flex-col'>
+    <main className='flex flex-1 flex-col overflow-y-hidden'>
       <div className='flex items-center'>
-        <p className='text-2xl w-full mb-1 font-bold'>{title}</p>
+        <p className='mb-1 w-full text-2xl font-bold'>{title}</p>
       </div>
       <div className='pb-6 pt-2'>
         <p className='text-sm text-muted-foreground'>{description}</p>

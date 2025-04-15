@@ -1,24 +1,32 @@
-import { create } from 'zustand'
+import { ValidatedFile } from '@/api/tauri'
 import { createSelector } from '@/lib/zustand'
+import { create } from 'zustand'
 
 export type DownloadQueueItem = {
   name: string
+  icon: string
   size: number
   progress: number
+  speed: number
 }
 
 export type UploadQueueItem = DownloadQueueItem & {
   path: string
 }
 
+type ProgressVal = {
+  progress: number
+  speed: number
+}
 type AppState = {
   isDownloading: boolean
 
   downloadQueue: DownloadQueueItem[]
   uploadQueue: UploadQueueItem[]
+  uploadDraggedItems: ValidatedFile[]
 
   uploadProgressMap: Record<string, number>
-  downloadProgressMap: Record<string, number>
+  downloadProgressMap: Record<string, ProgressVal>
 
   addToUploadQueue: (file: AppState['uploadQueue'][0]) => void
   addToDownloadQueue: (file: AppState['downloadQueue'][0]) => void
@@ -27,7 +35,11 @@ type AppState = {
   removeFromUploadQueue: (fileName: string) => void
 
   updateUploadQueueItemProgress: (path: string, progress: number) => void
-  updateDownloadQueueItemProgress: (fileName: string, progress: number) => void
+  updateDownloadQueueItemProgress: (
+    fileName: string,
+    progress: number,
+    speed: number,
+  ) => void
 
   clearDownloadQueue: () => void
 }
@@ -37,6 +49,7 @@ const store = create<AppState>((set) => ({
 
   downloadQueue: [],
   uploadQueue: [],
+  uploadDraggedItems: [],
 
   uploadProgressMap: {},
   downloadProgressMap: {},
@@ -48,7 +61,7 @@ const store = create<AppState>((set) => ({
 
   addToUploadQueue: (file: AppState['uploadQueue'][0]) =>
     set((state) => ({
-      uploadQueue: [...state.uploadQueue, file],
+      uploadQueue: [file, ...state.uploadQueue],
     })),
 
   removeFromDownloadQueue: (fileName: string) =>
@@ -63,19 +76,25 @@ const store = create<AppState>((set) => ({
       uploadQueue: state.uploadQueue.filter((file) => file.name !== fileName),
     })),
 
-  updateUploadQueueItemProgress: (path: string, progress: number) =>
-    set((state) => ({
-      uploadQueue: state.uploadQueue.map((file) =>
-        file.name === path ? { ...file, progress } : file,
+  updateUploadQueueItemProgress: (filename: string, progress: number) => {
+    set((s) => ({
+      uploadQueue: s.uploadQueue.map((file) =>
+        file.name === filename ? { ...file, progress } : file,
       ),
-    })),
+    }))
+  },
 
-  updateDownloadQueueItemProgress: (fileName: string, progress: number) =>
-    set((state) => ({
-      downloadQueue: state.downloadQueue.map((file) =>
-        file.name === fileName ? { ...file, progress } : file,
+  updateDownloadQueueItemProgress: (
+    filename: string,
+    progress: number,
+    speed: number,
+  ) => {
+    set((s) => ({
+      downloadQueue: s.downloadQueue.map((file) =>
+        file.name === filename ? { ...file, progress, speed } : file,
       ),
-    })),
+    }))
+  },
 
   clearDownloadQueue: () => set({ downloadQueue: [] }),
 }))

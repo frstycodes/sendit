@@ -12,7 +12,8 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-send-me",
+        "title": "SendIt",
+        "resizable": false,
         "decorations": false,
         "width": 400,
         "height": 600,

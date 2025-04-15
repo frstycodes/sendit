@@ -1,10 +1,10 @@
+import { cn } from '@/lib/utils'
+import { Router } from '@/main'
 import { useRouter } from '@tanstack/react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ChevronLeft, ChevronRight, Minus, Square, X } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
+import { ChevronLeft, ChevronRight, Minus, X } from 'lucide-react'
 import { Button } from './button'
-import { Router } from '@/main'
-import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 const appWindow = getCurrentWindow()
 const WINDOW_BUTTONS = [
@@ -12,11 +12,6 @@ const WINDOW_BUTTONS = [
     name: 'Minimize',
     icon: <Minus className='size-4 group-hover:text-foreground' />,
     fn: () => appWindow.minimize(),
-  },
-  {
-    name: 'Maximize',
-    icon: <Square className='size-3 group-hover:text-foreground' />,
-    fn: () => appWindow.toggleMaximize(),
   },
   {
     name: 'Close',
@@ -38,7 +33,7 @@ function NavigationButton(props: NavigationButtonProps) {
         <Button
           onClick={() => router.history[props.direction]()}
           variant='ghost'
-          className='px-0 rounded-full hover:bg-transparent p-1 text-muted-foreground'
+          className='rounded-full p-1 px-0 text-muted-foreground hover:bg-transparent'
         >
           <Icon className='!size-6' />
         </Button>
@@ -52,14 +47,14 @@ function NavigationButton(props: NavigationButtonProps) {
 
 export function TitleBar() {
   return (
-    <div data-tauri-drag-region className='h-8 flex justify-between w-full'>
+    <div data-tauri-drag-region className='flex h-8 w-full justify-between'>
       <div>
         <NavigationButton direction='back' />
         <NavigationButton direction='forward' />
       </div>
       <p
         data-tauri-drag-region
-        className='select px-2 text-sm h-full flex items-center'
+        className='select flex h-full items-center px-2 text-sm'
       ></p>
       <div className='flex'>
         {WINDOW_BUTTONS.map((item) => (
@@ -78,7 +73,7 @@ function WindowButton({ button }: { button: (typeof WINDOW_BUTTONS)[number] }) {
         e.currentTarget.blur()
       }}
       className={cn(
-        'h-8 grid place-items-center group hover:bg-foreground/10 w-9',
+        'group grid h-8 w-9 place-items-center hover:bg-foreground/10',
         button.buttonCn,
       )}
     >

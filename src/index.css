@@ -65,27 +65,24 @@
   }
   body,
   html {
-    @apply bg-transparent size-full h-full text-foreground;
+    @apply size-full h-full bg-transparent text-foreground;
   }
   #root {
-    @apply overflow-hidden flex flex-col w-screen h-screen;
+    @apply flex h-screen w-screen flex-col overflow-hidden;
   }
 }
 
 @layer base {
   ::-webkit-scrollbar {
-    @apply w-2;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-muted;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/50 rounded-full hover:bg-muted-foreground/75;
+    @apply w-0;
   }
   * {
     @apply border-border outline-ring/50;
   }
+  .non-container {
+    @apply -ml-3 w-[calc(100%+0.75rem+0.75rem)];
+  }
   body {
-    @apply bg-[#f3f3f3] dark:bg-[#212121] text-foreground;
+    @apply bg-[#f3f3f3] text-foreground dark:bg-[#212121];
   }
 }
