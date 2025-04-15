@@ -41,7 +41,7 @@ jobs:
       - name: install rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Since these targets are only uses on macos runners so they can be omitted for windows and ubuntu for faster builds
+          # Since these targets are only used on macos runners so they can be omitted for windows and ubuntu for faster builds
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
@@ -56,9 +56,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__ # This action automatically replaces \_\_VERSION\_\_ with the release version
+          tagName: ${{ github.ref_name }} # This action automatically replaces \_\_VERSION\_\_ with the release version
           releaseName: SendIt v__VERSION__
-          releaseBody: ''
+          releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
