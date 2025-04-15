@@ -33,10 +33,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: setup bun
-        uses: oven-sh/setup-bun@v2
+      - name: setup node
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: lts/*
+          cache: 'pnpm'
 
       - name: install rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -50,7 +51,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: install frontend dependencies
-        run: bun install
+        run: pnpm install
 
       - uses: tauri-apps/tauri-action@v0
         env:
