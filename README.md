@@ -21,7 +21,7 @@ A modern, secure peer-to-peer file sharing application built with Tauri and Reac
 
 - Node.js (v16 or higher)
 - Rust (latest stable)
-- System dependencies for Tauri (see [Tauri prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites))
+- System dependencies for Tauri (see [Tauri prerequisites](https://tauri.app/start/prerequisites))
 
 ## Development Setup
 
