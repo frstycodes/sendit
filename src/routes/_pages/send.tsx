@@ -84,7 +84,7 @@ function SendPage() {
 
       'tauri://drag-drop': async () => {
         const store = AppState.get()
-        const newQueue = { ...store.uploadQueue }
+        let newQueue: Record<string, UploadQueueItem> = {}
 
         for (const file of store.uploadDraggedItems.reverse()) {
           newQueue[file.name] = {
@@ -95,7 +95,7 @@ function SendPage() {
           }
           api.addFile(file.path)
         }
-
+        newQueue = { ...newQueue, ...store.uploadQueue }
         AppState.set({
           uploadDraggedItems: [],
           uploadQueue: newQueue,

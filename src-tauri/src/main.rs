@@ -5,6 +5,7 @@ mod iroh;
 mod utils;
 
 use iroh::BlobsClient;
+use log::LevelFilter;
 use serde::Serialize;
 use std::{
     collections::HashMap,
@@ -355,26 +356,11 @@ async fn download_header(
     let ticket =
         BlobTicket::from_str(&ticket).map_err(|e| format!("Failed to parse ticket: {}", e))?;
 
-    #[allow(unused_assignments)]
-    let mut blobs = Arc::new(state.iroh().blobs.clone());
+    let blobs = &state.iroh().blobs;
     let export_dir = Arc::new(utils::get_download_dir(&handle)?);
 
-    #[cfg(debug_assertions)]
-    {
-        let data_dir = handle
-            .path()
-            .download_dir()
-            .map_err(|e| format!("Failed to get download directory: {}", e))?
-            .join(".sendit");
-
-        let iroh = iroh::Iroh::new(data_dir)
-            .await
-            .map_err(|e| format!("Failed to initialize Iroh: {}", e))?;
-        blobs = Arc::new(iroh.blobs.clone());
-    }
-
     // Download and read the header file
-    let header_content = utils::download_and_read_header(&blobs, ticket).await?;
+    let header_content = utils::download_and_read_header(blobs, ticket).await?;
 
     let handles = std::sync::Mutex::new(HashMap::new());
     let mut tasks = Vec::new();
@@ -389,12 +375,13 @@ async fn download_header(
 
         let export_dir = Arc::clone(&export_dir);
         let handle = Arc::clone(&handle);
-        let file_clone = file.clone();
+        let filename = file.name.clone();
 
         // Spawn a new task for each file download
         let task = tokio::spawn(async move {
-            let name = file_clone.name.clone();
-            if let Err(error) = download_file(&handle, file_clone, &export_dir).await {
+            let name = file.name.clone();
+            let res = download_file(&handle, file, &export_dir).await;
+            if let Err(error) = res {
                 error!("Failed to download file: {}", error);
                 let payload = events::DownloadFileError { name, error };
                 handle.emit(events::DOWNLOAD_FILE_ERROR, payload).ok();
@@ -406,7 +393,7 @@ async fn download_header(
         handles
             .lock()
             .map_err(|e| format!("Failed to lock handles: {}", e))?
-            .insert(file.name.clone(), handle);
+            .insert(filename, handle);
 
         tasks.push(task);
     }
@@ -580,9 +567,10 @@ fn main() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
-                    Target::new(TargetKind::Webview),
+                    Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::Webview),
                 ])
+                .level(LevelFilter::Error)
                 .build(),
         )
         .plugin(tauri_plugin_clipboard_manager::init()) // CLIPBOARD
@@ -590,6 +578,7 @@ fn main() {
         .plugin(tauri_plugin_opener::init()) // FILE OPENER
         .setup(|app| {
             let handle = app.handle().clone();
+
             #[cfg(debug_assertions)] // Only on Dev environment
             {
                 let window = handle.get_webview_window("main").unwrap();
@@ -598,7 +587,7 @@ fn main() {
 
             tauri::async_runtime::spawn(async move {
                 if let Err(err) = setup(handle).await {
-                    eprintln!("Error setting up application: {}", err);
+                    error!("Error setting up application: {}", err);
                 }
             });
 

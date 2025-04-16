@@ -61,7 +61,7 @@ export function QueueItem({
       }}
       className='flex flex-col gap-2 rounded-sm border bg-muted p-2 px-3 shadow-sm dark:shadow-md'
     >
-      <div className='flex items-center gap-2'>
+      <motion.div layout className='flex items-center gap-2'>
         <span className='text-xl'>{iconEl}</span>
         <div className='truncate'>
           <div className='font-xl flex gap-1 text-sm'>
@@ -90,7 +90,7 @@ export function QueueItem({
             <DropdownMenuContent>{dropdownContent}</DropdownMenuContent>
           </DropdownMenu>
         )}
-      </div>
+      </motion.div>
 
       {showProgress && !item.done && (
         <ProgressBar showPercentage progress={progress} speed={item.speed} />
