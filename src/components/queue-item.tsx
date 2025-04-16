@@ -3,7 +3,6 @@ import { bytesToString, getFileIcon } from '@/lib/utils'
 import { DownloadQueueItem, UploadQueueItem } from '@/state/appstate'
 import { EllipsisVertical } from 'lucide-react'
 import { motion, MotionStyle } from 'motion/react'
-import { memo } from 'react'
 import { AnimatedCheckMark } from './animated-checkmark'
 import { ProgressBar } from './progress-bar'
 import { Button } from './ui/button'
@@ -21,8 +20,7 @@ export type QueueItemProps = {
   showProgress?: boolean
 }
 
-export const QueueItem = memo(Internal__QueueItem)
-function Internal__QueueItem({
+export function QueueItem({
   item: { name, icon, size, progress, ...item },
   style,
   dropdownContent,
@@ -43,11 +41,24 @@ function Internal__QueueItem({
   return (
     <motion.div
       layout
-      initial={{ scale: 0.9, y: -10 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.8, y: -10 }}
-      style={style}
-      transition={{ type: 'spring', duration: 0.3 }}
+      initial={{ opacity: 0, y: -10 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        transition: {
+          duration: 0.2,
+          type: 'spring',
+        },
+      }}
+      exit={{
+        opacity: 0,
+        scale: 0.95,
+        transition: { duration: 0.15 },
+      }}
+      style={{
+        ...style,
+        willChange: 'transform, opacity', // Optimize browser rendering
+      }}
       className='flex flex-col gap-2 rounded-sm border bg-muted p-2 px-3 shadow-sm dark:shadow-md'
     >
       <div className='flex items-center gap-2'>
@@ -55,9 +66,7 @@ function Internal__QueueItem({
         <div className='truncate'>
           <div className='font-xl flex gap-1 text-sm'>
             <p className='truncate'>{name}</p>
-            {progress == 100 && (
-              <AnimatedCheckMark tooltipContent={doneLabel} />
-            )}
+            {item.done && <AnimatedCheckMark tooltipContent={doneLabel} />}
           </div>
           {hasPath && (
             <a
@@ -83,7 +92,7 @@ function Internal__QueueItem({
         )}
       </div>
 
-      {showProgress && progress < 100 && (
+      {showProgress && !item.done && (
         <ProgressBar showPercentage progress={progress} speed={item.speed} />
       )}
     </motion.div>

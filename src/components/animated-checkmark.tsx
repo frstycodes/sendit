@@ -1,10 +1,9 @@
-import { Check } from 'lucide-react'
-import { motion } from 'framer-motion'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Check } from 'lucide-react'
 
 export function AnimatedCheckMark({
   tooltipContent,
@@ -14,9 +13,12 @@ export function AnimatedCheckMark({
   return (
     <Tooltip>
       <TooltipTrigger>
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+        <div
+          className='duration-100 animate-in zoom-in-0'
+          style={{ willChange: 'transform' }} // Optimize browser rendering
+        >
           <Check className='!size-3 rounded-full bg-emerald-500 stroke-[6px] p-0.5 text-muted' />
-        </motion.div>
+        </div>
       </TooltipTrigger>
       {!!tooltipContent && <TooltipContent>{tooltipContent}</TooltipContent>}
     </Tooltip>

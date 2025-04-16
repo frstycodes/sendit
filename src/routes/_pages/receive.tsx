@@ -9,7 +9,7 @@ import * as events from '@/config/events'
 import { Throttle } from '@/lib/utils'
 import { AppState, DownloadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
-import { motion } from 'motion/react'
+import { motion, motionValue } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
@@ -35,7 +35,7 @@ function ReceivePage() {
     const unsub = listeners({
       [events.DOWNLOAD_FILE_ADDED]: (ev) => {
         const item = ev.payload as events.DownloadFileAdded as DownloadQueueItem
-        item.progress = 0
+        item.progress = motionValue(0)
         store.addToDownloadQueue(item)
       },
 
@@ -122,12 +122,12 @@ function ReceivePage() {
       <div className='flex flex-1 flex-col overflow-y-hidden rounded-md border bg-background/20 py-2'>
         <ScrollArea className='h-full overflow-y-auto'>
           <div className='flex flex-col gap-2 px-2'>
-            {store.downloadQueue.map((item) => (
+            {Object.values(store.downloadQueue).map((item) => (
               <QueueItem
                 key={item.name}
                 item={item}
                 dropdownContent={
-                  item.progress < 100 && (
+                  !item.done && (
                     <DropdownMenuItem
                       onClick={() => api.abortDownload(item.name)}
                       className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'

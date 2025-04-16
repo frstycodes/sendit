@@ -1,35 +1,30 @@
 import { ValidatedFile } from '@/api/tauri'
 import { createSelector } from '@/lib/zustand'
+import { MotionValue } from 'motion/react'
 import { create } from 'zustand'
 
 export type DownloadQueueItem = {
   name: string
   icon: string
   size: number
-  progress: number
+  progress: MotionValue<number>
   speed: number
+  done: boolean
 }
 
 export type UploadQueueItem = DownloadQueueItem & {
   path: string
 }
 
-type ProgressVal = {
-  progress: number
-  speed: number
-}
 type AppState = {
   isDownloading: boolean
 
-  downloadQueue: DownloadQueueItem[]
-  uploadQueue: UploadQueueItem[]
+  downloadQueue: Record<string, DownloadQueueItem>
+  uploadQueue: Record<string, UploadQueueItem>
   uploadDraggedItems: ValidatedFile[]
 
-  uploadProgressMap: Record<string, number>
-  downloadProgressMap: Record<string, ProgressVal>
-
-  addToUploadQueue: (file: AppState['uploadQueue'][0]) => void
-  addToDownloadQueue: (file: AppState['downloadQueue'][0]) => void
+  addToUploadQueue: (file: UploadQueueItem) => void
+  addToDownloadQueue: (file: DownloadQueueItem) => void
 
   removeFromDownloadQueue: (fileName: string) => void
   removeFromUploadQueue: (fileName: string) => void
@@ -44,43 +39,50 @@ type AppState = {
   clearDownloadQueue: () => void
 }
 
-const store = create<AppState>((set) => ({
+const store = create<AppState>((set, get) => ({
   isDownloading: false,
 
-  downloadQueue: [],
-  uploadQueue: [],
+  downloadQueue: {},
+  uploadQueue: {},
   uploadDraggedItems: [],
 
-  uploadProgressMap: {},
-  downloadProgressMap: {},
-
-  addToDownloadQueue: (file: AppState['downloadQueue'][0]) =>
+  addToDownloadQueue: (file: DownloadQueueItem) =>
     set((state) => ({
-      downloadQueue: [...state.downloadQueue, file],
+      downloadQueue: { ...state.downloadQueue, [file.name]: file },
     })),
 
-  addToUploadQueue: (file: AppState['uploadQueue'][0]) =>
+  addToUploadQueue: (file: UploadQueueItem) =>
     set((state) => ({
-      uploadQueue: [file, ...state.uploadQueue],
+      uploadQueue: { [file.name]: file, ...state.uploadQueue },
     })),
 
   removeFromDownloadQueue: (fileName: string) =>
-    set((state) => ({
-      downloadQueue: state.downloadQueue.filter(
-        (file) => file.name !== fileName,
-      ),
-    })),
+    set((state) => {
+      const downloadQueue = { ...state.downloadQueue }
+      delete downloadQueue[fileName]
+      return { downloadQueue }
+    }),
 
   removeFromUploadQueue: (fileName: string) =>
-    set((state) => ({
-      uploadQueue: state.uploadQueue.filter((file) => file.name !== fileName),
-    })),
+    set((state) => {
+      const uploadQueue = { ...state.uploadQueue }
+      delete uploadQueue[fileName]
+      return { uploadQueue }
+    }),
 
   updateUploadQueueItemProgress: (filename: string, progress: number) => {
+    const entry = get().uploadQueue[filename]
+    entry!.progress.set(progress)
+    if (progress < 100) return
+
     set((s) => ({
-      uploadQueue: s.uploadQueue.map((file) =>
-        file.name === filename ? { ...file, progress } : file,
-      ),
+      uploadQueue: {
+        ...s.uploadQueue,
+        [filename]: {
+          ...entry,
+          done: true,
+        },
+      },
     }))
   },
 
@@ -89,14 +91,22 @@ const store = create<AppState>((set) => ({
     progress: number,
     speed: number,
   ) => {
-    set((s) => ({
-      downloadQueue: s.downloadQueue.map((file) =>
-        file.name === filename ? { ...file, progress, speed } : file,
-      ),
+    const entry = get().downloadQueue[filename]
+    entry!.progress.set(progress)
+
+    return set((state) => ({
+      downloadQueue: {
+        ...state.downloadQueue,
+        [filename]: {
+          ...entry,
+          speed,
+          done: progress == 100,
+        },
+      },
     }))
   },
 
-  clearDownloadQueue: () => set({ downloadQueue: [] }),
+  clearDownloadQueue: () => set({ downloadQueue: {} }),
 }))
 
 const use = createSelector(store)

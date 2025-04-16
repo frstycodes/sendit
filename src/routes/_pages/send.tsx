@@ -10,7 +10,7 @@ import { AppState, UploadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
 import { open } from '@tauri-apps/plugin-dialog'
 import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, motionValue } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -37,9 +37,10 @@ function SendPage() {
       [events.UPLOAD_FILE_ADDED]: (event) => {
         /*  We are clearing this here to prevent the empty message to flicker after drag-drop
          event when the items are cleared and until the file is received from backend. */
-        AppState.set({ uploadDraggedItems: [] })
         const item = event.payload as events.UploadFileAdded as UploadQueueItem
-        item.progress = 0
+        item.progress = motionValue(0)
+        const queue = AppState.get().uploadQueue
+        if (item.name in queue) return
         store.addToUploadQueue(item)
       },
 
@@ -62,7 +63,7 @@ function SendPage() {
 
       'tauri://drag-enter': async (event) => {
         let uploadQueueSet = new Set(
-          AppState.get().uploadQueue.map((i) => i.name),
+          Object.values(AppState.get().uploadQueue).map((i) => i.name),
         )
         const paths = event.payload.paths as string[]
 
@@ -82,9 +83,23 @@ function SendPage() {
       },
 
       'tauri://drag-drop': async () => {
-        for (const file of AppState.get().uploadDraggedItems.reverse()) {
+        const store = AppState.get()
+        const newQueue = { ...store.uploadQueue }
+
+        for (const file of store.uploadDraggedItems.reverse()) {
+          newQueue[file.name] = {
+            ...file,
+            progress: motionValue(0),
+            speed: 0,
+            done: false,
+          }
           api.addFile(file.path)
         }
+
+        AppState.set({
+          uploadDraggedItems: [],
+          uploadQueue: newQueue,
+        })
       },
     })
 
@@ -97,14 +112,17 @@ function SendPage() {
     for (const path of paths) api.addFile(path)
   }
 
-  const showEmptyMessage = !dragging && store.uploadQueue.length == 0
+  const queueSize = Object.values(store.uploadQueue).length
+
+  const showEmptyMessage = !dragging && queueSize == 0
+
   return (
     <motion.div
       layout
       className='flex flex-1 flex-col gap-2 overflow-y-hidden overflow-x-visible'
     >
       <div className='flex items-center justify-between gap-2'>
-        <p className='text-xl font-bold'>{store.uploadQueue.length} files</p>
+        <p className='text-xl font-bold'>{queueSize} files</p>
         <Button
           onClick={api.removeAllFiles}
           variant='destructive'
@@ -121,7 +139,7 @@ function SendPage() {
         data-dragging={dragging}
         className='flex flex-1 overflow-y-auto rounded-md border bg-background p-2 transition-all data-[dragging=true]:border-emerald-500 data-[dragging=true]:bg-emerald-500/10 dark:bg-background/20'
       >
-        <motion.div className='flex flex-1 flex-col gap-1.5'>
+        <div className='flex flex-1 flex-col gap-1.5'>
           <AnimatePresence mode='popLayout'>
             {showEmptyMessage && (
               <motion.div key='empty-state' layout>
@@ -141,8 +159,9 @@ function SendPage() {
             {store.uploadDraggedItems.map((item) => {
               const queueItem: UploadQueueItem = {
                 ...item,
-                progress: 0,
+                progress: motionValue(0),
                 speed: 0,
+                done: false,
               }
               return (
                 <div key={'dragging' + item.name} className='opacity-40'>
@@ -154,7 +173,7 @@ function SendPage() {
                 </div>
               )
             })}
-            {store.uploadQueue.map((item) => {
+            {Object.values(store.uploadQueue).map((item) => {
               return (
                 <QueueItem
                   key={item.name}
@@ -162,14 +181,7 @@ function SendPage() {
                   doneLabel='Import complete'
                   dropdownContent={
                     <DropdownMenuItem
-                      onClick={() => {
-                        api
-                          .removeFile(item.path)
-                          .then(() => {
-                            console.log('File removed successfully')
-                          })
-                          .catch((err) => console.log(err))
-                      }}
+                      onClick={() => api.removeFile(item.path)}
                       className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
                     >
                       <Trash className='mr-2 h-4 w-4' />
@@ -180,9 +192,9 @@ function SendPage() {
               )
             })}
           </AnimatePresence>
-        </motion.div>
+        </div>
       </ScrollArea>
-      {store.uploadQueue.length > 0 && <CopyTicketButton />}
+      {queueSize > 0 && <CopyTicketButton />}
     </motion.div>
   )
 }
