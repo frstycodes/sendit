@@ -5,15 +5,25 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
+    --background-gr-a: 0 0% 16%;
+    --background-gr-b: 0 0% 5%;
     --foreground: 240 10% 3.9%;
+
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 346.8 77.2% 49.8%;
+
+    --primary: 347 77% 50%;
+    --primary-gr-a: 347 94% 57%;
+    --primary-gr-b: 347 78% 46%;
     --primary-foreground: 355.7 100% 97.3%;
+
     --secondary: 240 4.8% 95.9%;
+    --secondary-gr-a: 0 0% 21%;
+    --secondary-gr-b: var(--background-gr-a);
     --secondary-foreground: 240 5.9% 10%;
+
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
     --accent: 240 4.8% 95.9%;
@@ -38,8 +48,12 @@
     --card-foreground: 0 0% 95%;
     --popover: 0 0% 9%;
     --popover-foreground: 0 0% 95%;
+
     --primary: 346.8 77.2% 49.8%;
+    --primary-gr-a: 347 94% 57%;
+    --primary-gr-b: 347 78% 46%;
     --primary-foreground: 355.7 100% 97.3%;
+
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
@@ -83,6 +97,6 @@
     @apply -ml-3 w-[calc(100%+0.75rem+0.75rem)];
   }
   body {
-    @apply bg-[#f3f3f3] text-foreground dark:bg-[#212121];
+    @apply from-background-gr-a to-background-gr-b bg-gradient-to-br text-foreground;
   }
 }

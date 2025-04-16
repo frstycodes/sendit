@@ -43,6 +43,5 @@ root.render(
         <RouterProvider router={router} defaultPreloadDelay={0} />
       </TooltipProvider>
     </ThemeProvider>
-    ,
   </React.StrictMode>,
 )

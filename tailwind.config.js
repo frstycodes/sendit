@@ -17,6 +17,16 @@ export default {
       boxShadow: {
         rim: 'inset 0 1px 0 #ffffff12',
       },
+      gradientColorStops: {
+        'background-gr-a': 'hsl(var(--background-gr-a))',
+        'background-gr-b': 'hsl(var(--background-gr-b))',
+
+        'secondary-gr-a': 'hsl(var(--secondary-gr-a))',
+        'secondary-gr-b': 'hsl(var(--secondary-gr-b))',
+
+        'primary-gr-a': 'hsl(var(--primary-gr-a))',
+        'primary-gr-b': 'hsl(var(--primary-gr-b))',
+      },
       colors: {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
