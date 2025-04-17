@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client'
 import { Toaster } from './components/ui/sonner'
 import { TooltipProvider } from './components/ui/tooltip'
 import { ThemeProvider } from './context/theme.context'
-import './index.css'
 import { routeTree } from './routeTree.gen'
 
 const container = document.getElementById('root')

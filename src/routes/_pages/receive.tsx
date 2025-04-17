@@ -1,5 +1,6 @@
 import { api, listeners } from '@/api/tauri'
 import { Loader } from '@/components/loader'
+import { QueueContainer } from '@/components/queue-container'
 import { QueueItem } from '@/components/queue-item'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
@@ -106,7 +107,7 @@ function ReceivePage() {
         <Button onClick={download}>
           {store.isDownloading && (
             <motion.div
-              className='size-4! animate-in'
+              className='animate-in size-4!'
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
@@ -119,29 +120,25 @@ function ReceivePage() {
           </motion.span>
         </Button>
       </div>
-      <div className='flex flex-1 flex-col overflow-y-hidden rounded-md border bg-background/20 py-2'>
-        <ScrollArea className='h-full overflow-y-auto'>
-          <div className='flex flex-col gap-2 px-2'>
-            {Object.values(store.downloadQueue).map((item) => (
-              <QueueItem
-                key={item.name}
-                item={item}
-                dropdownContent={
-                  !item.done && (
-                    <DropdownMenuItem
-                      onClick={() => api.abortDownload(item.name)}
-                      className='cursor-pointer hover:!bg-rose-400 dark:hover:!bg-rose-600'
-                    >
-                      Cancel
-                    </DropdownMenuItem>
-                  )
-                }
-                doneLabel='Download complete'
-              />
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
+      <QueueContainer>
+        {Object.values(store.downloadQueue).map((item) => (
+          <QueueItem
+            key={item.name}
+            item={item}
+            dropdownContent={
+              !item.done && (
+                <DropdownMenuItem
+                  onClick={() => api.abortDownload(item.name)}
+                  className='cursor-pointer hover:bg-rose-400! dark:hover:bg-rose-600!'
+                >
+                  Cancel
+                </DropdownMenuItem>
+              )
+            }
+            doneLabel='Download complete'
+          />
+        ))}
+      </QueueContainer>
     </div>
   )
 }

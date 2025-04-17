@@ -28,7 +28,7 @@ export function ProgressBar({
     <div className='w-full'>
       <div className='w-full gap-2 bg-muted'>
         <motion.div
-          className='h-1 rounded-full bg-primary shadow-sm transition-[width] duration-75'
+          className='h-1 rounded-full bg-primary shadow-xs transition-[width] duration-75'
           style={{
             width: progressPercentageStr,
             willChange: 'width',

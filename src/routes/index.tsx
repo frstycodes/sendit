@@ -64,14 +64,14 @@ function SendButton() {
           animate={hovered ? 'hovered' : 'default'}
           variants={firstIconVariants}
         >
-          <Send className='!size-7 fill-foreground' />
+          <Send className='size-7! fill-foreground' />
         </motion.div>
         <motion.div
           transition={{ delay: hovered ? 0.2 : 0 }}
           animate={hovered ? 'hovered' : 'default'}
           variants={secondIconVariants}
         >
-          <Send className='!size-7 fill-foreground' />
+          <Send className='size-7! fill-foreground' />
         </motion.div>
       </div>
       Send
@@ -122,14 +122,14 @@ function ReceiveButton() {
           animate={hovered ? 'hovered' : 'default'}
           variants={firstIconVariants}
         >
-          <Download className='!size-7 stroke-[3px]' />
+          <Download className='size-7! stroke-[3px]' />
         </motion.div>
         <motion.div
           transition={{ delay: hovered ? 0.2 : 0 }}
           animate={hovered ? 'hovered' : 'default'}
           variants={secondIconVariants}
         >
-          <Download className='!size-7 stroke-[3px]' />
+          <Download className='size-7! stroke-[3px]' />
         </motion.div>
       </div>
       Receive

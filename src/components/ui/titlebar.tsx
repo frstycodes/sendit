@@ -35,7 +35,7 @@ function NavigationButton(props: NavigationButtonProps) {
           variant='ghost'
           className='rounded-full p-1 px-0 text-muted-foreground hover:bg-transparent'
         >
-          <Icon className='!size-6' />
+          <Icon className='size-6!' />
         </Button>
       </TooltipTrigger>
       <TooltipContent>

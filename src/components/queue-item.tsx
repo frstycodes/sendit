@@ -59,11 +59,11 @@ export function QueueItem({
         ...style,
         willChange: 'transform, opacity', // Optimize browser rendering
       }}
-      className='flex flex-col gap-2 rounded-sm border bg-muted p-2 px-3 shadow-sm dark:shadow-md'
+      className='bg-muted border-foreground/10 box-border flex flex-col gap-2 rounded-sm border bg-gradient-to-br px-3 py-2 shadow-xs dark:shadow-md'
     >
       <motion.div layout className='flex items-center gap-2'>
         <span className='text-xl'>{iconEl}</span>
-        <div className='truncate'>
+        <div className='truncate dark:text-shadow-sm'>
           <div className='font-xl flex gap-1 text-sm'>
             <p className='truncate'>{name}</p>
             {item.done && <AnimatedCheckMark tooltipContent={doneLabel} />}
@@ -71,13 +71,13 @@ export function QueueItem({
           {hasPath && (
             <a
               onClick={() => revealItemInDir(item.path)}
-              className='cursor-pointer truncate text-[0.6rem] text-muted-foreground hover:underline'
+              className='text-muted-foreground cursor-pointer truncate text-[0.6rem] hover:underline'
             >
               {item.path.replace(/\\/g, '/')}
             </a>
           )}
         </div>
-        <p className='ml-auto whitespace-nowrap text-xs text-muted-foreground'>
+        <p className='text-muted-foreground ml-auto text-xs whitespace-nowrap'>
           {bytesToString(size)}
         </p>
         {dropdownContent && (

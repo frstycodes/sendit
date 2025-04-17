@@ -34,10 +34,14 @@ function RouteComponent() {
   return (
     <main className='flex flex-1 flex-col overflow-y-hidden'>
       <div className='flex items-center'>
-        <p className='mb-1 w-full text-2xl font-bold'>{title}</p>
+        <p className='mb-1 w-full text-2xl font-bold dark:text-shadow-lg'>
+          {title}
+        </p>
       </div>
-      <div className='pb-6 pt-2'>
-        <p className='text-sm text-muted-foreground'>{description}</p>
+      <div className='pt-2 pb-6'>
+        <p className='text-muted-foreground text-sm dark:text-shadow-sm'>
+          {description}
+        </p>
       </div>
       <Outlet />
     </main>

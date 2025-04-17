@@ -4,14 +4,14 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex dark:text-shadow-sm box-border cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         default:
-          'bg-gradient-to-br from-secondary-gr-a to-secondary-gr-b border shadow-sm dark:bg-foreground/10 text-foreground dark:hover:bg-foreground/15 hover:bg-foreground/5',
+          'button-gr-secondary shadow-sm dark:bg-foreground/10 text-foreground dark:hover:bg-foreground/15 hover:bg-foreground/5',
         destructive:
-          'from-primary-gr-a to-primary-gr-b bg-gradient-to-br shadow-sm dark:shadow-rim border text-destructive-foreground dark:hover:bg-rose-500 hover:bg-rose-600',
+          'button-gr-primary shadow-sm text-shadow-sm text-destructive-foreground dark:hover:bg-rose-500 hover:bg-rose-600',
         outline:
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
         secondary:
