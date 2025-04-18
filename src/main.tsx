@@ -6,6 +6,13 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { ThemeProvider } from './context/theme.context'
 import { routeTree } from './routeTree.gen'
 
+const os = navigator.userAgent.toLowerCase()
+const isWindows = os.includes('windows')
+
+if (isWindows) {
+  document.body.classList.add('windows')
+}
+
 const container = document.getElementById('root')
 
 const root = createRoot(container!)

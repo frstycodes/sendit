@@ -148,28 +148,33 @@
   * {
     @apply border-border;
   }
+
   body,
   html {
     @apply text-foreground size-full h-full scroll-smooth bg-transparent;
   }
+
+  body {
+    @apply text-foreground bg-gradient-to-br from-[#efefef] to-[#dddddd] dark:bg-[#202020];
+
+    @media (prefers-color-scheme: dark) {
+      background: #202020;
+    }
+
+    &.windows {
+      background: transparent !important;
+    }
+  }
+
   #root {
     @apply flex h-screen w-screen flex-col overflow-hidden;
   }
-}
 
-@layer base {
   ::-webkit-scrollbar {
     @apply w-0;
   }
-  * {
-    @apply border-border outline-ring/50;
-  }
   .non-container {
     @apply -ml-3 w-[calc(100%+0.75rem+0.75rem)];
-  }
-  body {
-    @apply text-foreground;
-    /* @apply from-background-gr-a to-background-gr-b text-foreground bg-linear-to-br; */
   }
 
   .button-gr-primary {

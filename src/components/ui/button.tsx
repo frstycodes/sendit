@@ -9,15 +9,16 @@ export const buttonStyles = {
   destructive:
     'border bg-rose-500 dark:bg-rose-600 text-white text-shadow-sm dark:border-black/30 border-b-black/12 dark:border-b-initial dark:border-t-white/5 shadow-xs dark:shadow-none',
 }
+
 const buttonVariants = cva(
   'inline-flex box-border cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         ...buttonStyles,
-        default_old:
+        default_gr:
           'button-gr-secondary shadow-sm dark:bg-foreground/10 text-foreground dark:hover:bg-foreground/15 hover:bg-foreground/5',
-        destructive_old:
+        destructive_gr:
           'button-gr-primary shadow-sm text-shadow-sm text-destructive-foreground dark:hover:bg-rose-500 hover:bg-rose-600',
         outline:
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground',

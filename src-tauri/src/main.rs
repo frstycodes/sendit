@@ -17,7 +17,6 @@ use std::{
 };
 use tauri_plugin_log::{Target, TargetKind};
 use utils::LogLevel;
-use window_vibrancy::NSVisualEffectMaterial;
 
 use tokio::sync::{Mutex, MutexGuard};
 use tracing::{debug, error, info, warn};
@@ -593,18 +592,6 @@ fn main() {
                 }
             }
 
-            #[cfg(target_os = "macos")]
-            {
-                let res = window_vibrancy::apply_vibrancy(
-                    &window,
-                    NSVisualEffectMaterial::AppearanceBased,
-                    None,
-                    None,
-                );
-                if let Err(res) = res {
-                    error!("Error applying vibrancy: {}", res);
-                }
-            }
             tauri::async_runtime::spawn(async move {
                 if let Err(err) = setup(handle).await {
                     error!("Error setting up application: {}", err);
