@@ -12,7 +12,6 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
 import { motion, motionValue } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/send')({
   component: SendPage,
@@ -126,11 +125,11 @@ function SendPage() {
         <Button
           onClick={api.removeAllFiles}
           variant='destructive'
-          className='ml-auto h-7 gap-2 px-3 text-xs'
+          className='ml-auto gap-2 px-3 text-xs'
         >
           <Trash2 className='size-3.5!' /> Clear
         </Button>
-        <Button onClick={addFilesFromDialog} className='h-7 gap-1 px-3 text-xs'>
+        <Button onClick={addFilesFromDialog} className='gap-1 px-3 text-xs'>
           <Plus /> Add Files
         </Button>
       </div>
@@ -197,11 +196,7 @@ function CopyTicketButton() {
     if (copyRes.isErr()) return
 
     setCopied(true)
-    toast.success('Ticket copied to clipboard', {
-      position: 'top-left',
-      richColors: true,
-    })
-    await sleep(1000)
+    await sleep(2000)
     setCopied(false)
   }
 
@@ -214,7 +209,12 @@ function CopyTicketButton() {
           <Ticket />
         </motion.div>
       )}{' '}
-      Copy Ticket
+      <span
+        className='animate-in fade-in-0'
+        key={'copied:' + copied.toString()}
+      >
+        {copied ? 'Ticket copied' : 'Copy Ticket'}
+      </span>
     </Button>
   )
 }

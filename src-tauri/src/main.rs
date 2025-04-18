@@ -17,6 +17,7 @@ use std::{
 };
 use tauri_plugin_log::{Target, TargetKind};
 use utils::LogLevel;
+use window_vibrancy::NSVisualEffectMaterial;
 
 use tokio::sync::{Mutex, MutexGuard};
 use tracing::{debug, error, info, warn};
@@ -579,12 +580,31 @@ fn main() {
         .setup(|app| {
             let handle = app.handle().clone();
 
+            let window = handle.get_webview_window("main").unwrap();
             #[cfg(debug_assertions)] // Only on Dev environment
+            window.open_devtools();
+
+            #[cfg(target_os = "windows")]
             {
-                let window = handle.get_webview_window("main").unwrap();
-                window.open_devtools();
+                let res = window_vibrancy::apply_mica(&window, None);
+                println!("Mica applied");
+                if let Err(err) = res {
+                    error!("Error applying mica: {}", err);
+                }
             }
 
+            #[cfg(target_os = "macos")]
+            {
+                let res = window_vibrancy::apply_vibrancy(
+                    &window,
+                    NSVisualEffectMaterial::AppearanceBased,
+                    None,
+                    None,
+                );
+                if let Err(res) = res {
+                    error!("Error applying vibrancy: {}", res);
+                }
+            }
             tauri::async_runtime::spawn(async move {
                 if let Err(err) = setup(handle).await {
                     error!("Error setting up application: {}", err);

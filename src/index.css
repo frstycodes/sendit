@@ -41,6 +41,7 @@
   --chart-3: 197 37% 24%;
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
+  --shadow-rim: inset 0 -1px 0 0 #00000015;
 }
 
 .dark {
@@ -82,6 +83,7 @@
   --chart-3: 30 80% 55%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
+  --shadow-rim: inset 0 1px 0 0 #ffffff10;
 }
 
 @theme inline {
@@ -138,6 +140,8 @@
   --color-primary-border-gr-b: hsl(var(--primary-border-gr-b));
   --color-secondary-border-gr-a: hsl(var(--secondary-border-gr-a));
   --color-secondary-border-gr-b: hsl(var(--secondary-border-gr-b));
+
+  --shadow-rim: var(--shadow-rim);
 }
 
 @layer base {
@@ -146,7 +150,7 @@
   }
   body,
   html {
-    @apply text-foreground size-full h-full bg-transparent;
+    @apply text-foreground size-full h-full scroll-smooth bg-transparent;
   }
   #root {
     @apply flex h-screen w-screen flex-col overflow-hidden;
@@ -164,7 +168,8 @@
     @apply -ml-3 w-[calc(100%+0.75rem+0.75rem)];
   }
   body {
-    @apply from-background-gr-a to-background-gr-b text-foreground bg-linear-to-br;
+    @apply text-foreground;
+    /* @apply from-background-gr-a to-background-gr-b text-foreground bg-linear-to-br; */
   }
 
   .button-gr-primary {

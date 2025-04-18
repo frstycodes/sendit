@@ -3,14 +3,21 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
+export const buttonStyles = {
+  default:
+    'bg-white/60 dark:bg-white/5 hover:bg-white/10 dark:border-black/30 border-b-black/12 dark:border-b-initial dark:border-t-white/5 text-foreground border active:opacity-50 shadow-xs dark:shadow-none',
+  destructive:
+    'border bg-rose-500 dark:bg-rose-600 text-white text-shadow-sm dark:border-black/30 border-b-black/12 dark:border-b-initial dark:border-t-white/5 shadow-xs dark:shadow-none',
+}
 const buttonVariants = cva(
-  'inline-flex dark:text-shadow-sm box-border cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex box-border cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default:
+        ...buttonStyles,
+        default_old:
           'button-gr-secondary shadow-sm dark:bg-foreground/10 text-foreground dark:hover:bg-foreground/15 hover:bg-foreground/5',
-        destructive:
+        destructive_old:
           'button-gr-primary shadow-sm text-shadow-sm text-destructive-foreground dark:hover:bg-rose-500 hover:bg-rose-600',
         outline:
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground',

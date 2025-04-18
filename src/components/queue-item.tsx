@@ -59,7 +59,7 @@ export function QueueItem({
         ...style,
         willChange: 'transform, opacity', // Optimize browser rendering
       }}
-      className='bg-muted border-foreground/10 box-border flex flex-col gap-2 rounded-sm border bg-gradient-to-br px-3 py-2 shadow-xs dark:shadow-md'
+      className='hover:bg-initial flex flex-col gap-2 rounded-[4px] border bg-white/60 px-3 py-2 backdrop-blur-lg dark:border-black/30 dark:bg-white/5'
     >
       <motion.div layout className='flex items-center gap-2'>
         <span className='text-xl'>{iconEl}</span>

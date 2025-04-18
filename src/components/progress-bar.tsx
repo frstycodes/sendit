@@ -26,9 +26,9 @@ export function ProgressBar({
 
   return (
     <div className='w-full'>
-      <div className='w-full gap-2 bg-muted'>
+      <div className='w-full gap-2'>
         <motion.div
-          className='h-1 rounded-full bg-primary shadow-xs transition-[width] duration-75'
+          className='bg-primary h-1 rounded-full shadow-xs transition-[width] duration-75'
           style={{
             width: progressPercentageStr,
             willChange: 'width',
@@ -36,13 +36,13 @@ export function ProgressBar({
         />
         <div className='flex items-center justify-between'>
           {showPercentage && (
-            <p className='mt-1 text-xs text-muted-foreground'>
+            <p className='text-muted-foreground mt-1 text-xs'>
               {progressPercentage}%
             </p>
           )}
 
           {!!speed && (
-            <p className='mt-1 text-xs text-muted-foreground'>
+            <p className='text-muted-foreground mt-1 text-xs'>
               {bytesToString(speed * 1000_000)}/s
             </p>
           )}

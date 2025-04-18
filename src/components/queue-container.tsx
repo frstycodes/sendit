@@ -15,10 +15,10 @@ export const QueueContainer = React.forwardRef<
   return (
     <ScrollArea
       ref={ref}
-      className='dark:border-foreground/10 border-foreground/15 flex flex-1 overflow-y-auto rounded-md border bg-white/50 transition-all data-[dragging=true]:border-emerald-500 data-[dragging=true]:bg-emerald-500/10 dark:bg-black/20'
+      className='relative flex flex-1 overflow-y-scroll transition-all'
       {...props}
     >
-      <div className='flex flex-1 flex-col gap-1.5 p-2'>
+      <div className='flex flex-1 flex-col gap-1.5 py-0.5'>
         <AnimatePresence mode='popLayout'>{children}</AnimatePresence>
       </div>
     </ScrollArea>

@@ -1,8 +1,44 @@
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { createFileRoute } from '@tanstack/react-router'
 import { Download, Send } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useState } from 'react'
+
+const BUTTONS = {
+  send: {
+    icon: Send,
+    iconProps: { className: 'size-7! fill-foreground' },
+    text: 'Send',
+    path: '/send',
+    className:
+      'hover:bg-teal-500 hover:shadow-teal-600/40 dark:hover:bg-teal-700',
+    firstIconVariants: {
+      hovered: { scale: 0, y: -40, x: 40 },
+      default: { scale: 1, y: 0, x: 0 },
+    },
+    secondIconVariants: {
+      default: { scale: 0, y: 40, x: -40 },
+      hovered: { scale: 1, y: 0, x: 0 },
+    },
+  },
+  receive: {
+    icon: Download,
+    iconProps: { className: 'size-7! stroke-[3px]' },
+    text: 'Receive',
+    path: '/receive',
+    className:
+      'hover:bg-emerald-500 hover:shadow-emerald-600/40 dark:hover:bg-emerald-700',
+    firstIconVariants: {
+      hovered: { scale: 0, y: 30, x: 0 },
+      default: { scale: 1, y: 0, x: 0 },
+    },
+    secondIconVariants: {
+      default: { scale: 0, y: -30, x: 0 },
+      hovered: { scale: 1, y: 0, x: 0 },
+    },
+  },
+}
 
 export const Route = createFileRoute('/')({
   component: RouteComponent,
@@ -10,129 +46,51 @@ export const Route = createFileRoute('/')({
 
 function RouteComponent() {
   return (
-    <div>
+    <div className='animate-in slide-in-from-top-[10px] fade-in-0 duration-300 ease-out'>
       <h1 className='text-3xl font-bold'>SendIt</h1>
       <div className='flex flex-col justify-center gap-4 py-4'>
-        <SendButton />
-        <ReceiveButton />
+        <AnimatedButton type='send' />
+        <AnimatedButton type='receive' />
       </div>
     </div>
   )
 }
 
-function SendButton() {
+function AnimatedButton({ type }: { type: keyof typeof BUTTONS }) {
   const [hovered, setHovered] = useState(false)
   const navigate = Route.useNavigate()
 
-  const firstIconVariants = {
-    hovered: {
-      scale: 0,
-      y: -40,
-      x: 40,
-    },
-    default: {
-      scale: 1,
-      y: 0,
-      x: 0,
-    },
-  }
-
-  const secondIconVariants = {
-    default: {
-      scale: 0,
-      y: 40,
-      x: -40,
-    },
-    hovered: {
-      scale: 1,
-      y: 0,
-      x: 0,
-    },
-  }
+  const config = BUTTONS[type]
+  const Icon = config.icon
 
   return (
     <Button
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate({ to: '/send' })}
-      className='h-fit flex-col gap-6 py-6 text-xl font-bold hover:border-transparent hover:bg-teal-500 hover:shadow-xl hover:shadow-teal-600 dark:hover:bg-teal-700'
+      onClick={() => navigate({ to: config.path })}
+      className={cn(
+        'h-fit flex-col gap-6 py-6 text-xl font-bold hover:shadow-lg',
+        config.className,
+      )}
     >
       <div className='relative'>
         <motion.div
           transition={{ delay: hovered ? 0 : 0.2 }}
           className='absolute'
           animate={hovered ? 'hovered' : 'default'}
-          variants={firstIconVariants}
+          variants={config.firstIconVariants}
         >
-          <Send className='size-7! fill-foreground' />
+          <Icon {...config.iconProps} />
         </motion.div>
         <motion.div
           transition={{ delay: hovered ? 0.2 : 0 }}
           animate={hovered ? 'hovered' : 'default'}
-          variants={secondIconVariants}
+          variants={config.secondIconVariants}
         >
-          <Send className='size-7! fill-foreground' />
+          <Icon {...config.iconProps} />
         </motion.div>
       </div>
-      Send
-    </Button>
-  )
-}
-
-function ReceiveButton() {
-  const [hovered, setHovered] = useState(false)
-  const navigate = Route.useNavigate()
-
-  const firstIconVariants = {
-    hovered: {
-      scale: 0,
-      y: 30,
-      x: 0,
-    },
-    default: {
-      scale: 1,
-      y: 0,
-      x: 0,
-    },
-  }
-
-  const secondIconVariants = {
-    default: {
-      scale: 0,
-      y: -30,
-      x: 0,
-    },
-    hovered: {
-      scale: 1,
-      y: 0,
-      x: 0,
-    },
-  }
-  return (
-    <Button
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate({ to: '/receive' })}
-      className='h-fit flex-col gap-6 py-6 text-xl font-bold transition-all hover:border-transparent hover:bg-emerald-500 hover:shadow-xl hover:shadow-emerald-600 dark:hover:bg-emerald-700'
-    >
-      <div className='relative'>
-        <motion.div
-          transition={{ delay: hovered ? 0 : 0.2 }}
-          className='absolute'
-          animate={hovered ? 'hovered' : 'default'}
-          variants={firstIconVariants}
-        >
-          <Download className='size-7! stroke-[3px]' />
-        </motion.div>
-        <motion.div
-          transition={{ delay: hovered ? 0.2 : 0 }}
-          animate={hovered ? 'hovered' : 'default'}
-          variants={secondIconVariants}
-        >
-          <Download className='size-7! stroke-[3px]' />
-        </motion.div>
-      </div>
-      Receive
+      {config.text}
     </Button>
   )
 }
