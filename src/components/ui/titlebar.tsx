@@ -1,5 +1,4 @@
 import { cn } from '@/lib/utils'
-import { Router } from '@/main'
 import { useRouter } from '@tanstack/react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { ChevronLeft, ChevronRight, Minus, X } from 'lucide-react'
@@ -17,7 +16,7 @@ const WINDOW_BUTTONS = [
   {
     name: 'Close',
     icon: <X className='group-hover:text-foreground size-4' />,
-    buttonCn: 'hover:bg-rose-500',
+    buttonClassName: 'hover:bg-rose-500',
     fn: () => appWindow.close(),
   },
 ]
@@ -45,7 +44,7 @@ type NavigationButtonProps = {
   direction: 'forward' | 'back'
 }
 function NavigationButton(props: NavigationButtonProps) {
-  const router = useRouter<Router>()
+  const router = useRouter()
   const Icon = props.direction == 'back' ? ChevronLeft : ChevronRight
   return (
     <Tooltip>
@@ -74,7 +73,7 @@ function WindowButton({ button }: { button: (typeof WINDOW_BUTTONS)[number] }) {
       }}
       className={cn(
         'group hover:bg-foreground/10 grid h-8 w-9 place-items-center',
-        button.buttonCn,
+        button.buttonClassName,
       )}
     >
       {button.icon}

@@ -1,54 +1,34 @@
-import { createRouter, RouterProvider } from '@tanstack/react-router'
+import { RouterProvider } from '@tanstack/react-router'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from './components/ui/sonner'
 import { TooltipProvider } from './components/ui/tooltip'
 import { ThemeProvider } from './context/theme.context'
-import { routeTree } from './routeTree.gen'
 import { isWindows11 } from 'tauri-plugin-windows-version-api'
+import { PostHogProvider } from 'posthog-js/react'
+import { disableBrowserDefaultBehaviours } from './lib/utils'
+import { posthogKeys } from './lib/post-hog'
+import { router } from './lib/tanstack-router'
 
-// We use Mica effect for windows 11 so we need to set the background color to transparent
-if (await isWindows11()) {
-  document.body.classList.add('windows')
-}
+// MICA SETUP: We use Mica effect for windows 11 so we need to set the background color to transparent
+isWindows11().then((res) => res && document.body.classList.add('mica'))
+
+// This disables right click context menu and reloading the app
+disableBrowserDefaultBehaviours()
 
 const container = document.getElementById('root')
-const root = createRoot(container!)
-
-const router = createRouter({ routeTree })
-export type Router = typeof router
-
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: Router
-  }
-}
-
-// DISABLE RIGHT CLICK CONTEXT MENU
-document.addEventListener('contextmenu', (e) => {
-  if (import.meta.env.DEV) return
-  e.preventDefault()
-})
-
-// DISABLE RELOADS
-document.addEventListener('keydown', (event) => {
-  if (import.meta.env.DEV) return
-  // Prevent F5 or Ctrl+R (Windows/Linux) and Command+R (Mac) from refreshing the page
-  const shouldBlock =
-    event.key === 'F5' ||
-    (event.ctrlKey && event.key === 'r') ||
-    (event.metaKey && event.key === 'r')
-
-  if (shouldBlock) event.preventDefault()
-})
-
-root.render(
+createRoot(container!).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme='system'>
-      <TooltipProvider delayDuration={100}>
-        <Toaster />
-        <RouterProvider router={router} defaultPreloadDelay={0} />
-      </TooltipProvider>
-    </ThemeProvider>
+    <PostHogProvider
+      apiKey={posthogKeys.apiKey}
+      options={{ api_host: posthogKeys.host }}
+    >
+      <ThemeProvider defaultTheme='system'>
+        <TooltipProvider delayDuration={100}>
+          <Toaster />
+          <RouterProvider router={router} defaultPreloadDelay={0} />
+        </TooltipProvider>
+      </ThemeProvider>
+    </PostHogProvider>
   </React.StrictMode>,
 )
