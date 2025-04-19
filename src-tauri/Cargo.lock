@@ -6582,7 +6582,7 @@ dependencies = [
 
 [[package]]
 name = "send-it"
-version = "0.3.0"
+version = "0.4.1"
 dependencies = [
  "base64 0.22.1",
  "file_icon_provider",
