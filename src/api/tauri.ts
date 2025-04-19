@@ -12,6 +12,7 @@ import { revealItemInDir as tauri__revealItemInDir } from '@tauri-apps/plugin-op
 import { err, ok, Result } from 'neverthrow'
 import { toast } from 'sonner'
 import * as events from '@/config/events'
+import { Theme } from '@/context/theme.context'
 
 export async function revealItemInDir(
   path: string,
@@ -145,4 +146,9 @@ export const api = {
    * @param ticket - The doc ticket to use for aborting.
    */
   abortDownload: (name: string) => emit(events.CANCEL_DOWNLOAD, name),
+
+  /**
+   * Set Theme
+   */
+  setTheme: (theme: Theme) => invoke<void>('set_theme', { theme }),
 }

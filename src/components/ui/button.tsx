@@ -5,13 +5,13 @@ import { cn } from '@/lib/utils'
 
 export const buttonStyles = {
   default:
-    'bg-white/60 dark:bg-white/5 hover:bg-white/10 dark:border-black/30 border-b-black/12 dark:border-b-initial dark:border-t-white/5 text-foreground border active:opacity-50 shadow-xs dark:shadow-none',
+    'bg-white/90 dark:bg-white/5 hover:bg-white/10 dark:border-black/30 border-b-black/12 dark:border-b-initial dark:border-t-white/5 text-foreground border light:shadow-xs',
   destructive:
-    'border bg-rose-500 dark:bg-rose-600 text-white text-shadow-sm dark:border-black/30 border-b-black/12 dark:border-b-initial dark:border-t-white/5 shadow-xs dark:shadow-none',
+    'border bg-rose-500 dark:bg-rose-600 text-white text-shadow-sm dark:border-black/30 border-black/5 light:border-b-black/15 dark:border-t-white/20 light:shadow-xs hover:bg-rose-600',
 }
 
 const buttonVariants = cva(
-  'inline-flex box-border cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex active:translate-y-[2px] active:scale-97 box-border cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[4px] text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {

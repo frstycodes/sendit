@@ -551,6 +551,28 @@ async fn download_file(
     Ok(())
 }
 
+#[tauri::command]
+fn set_theme(theme: String, handle: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        info!("Setting theme: {}", theme);
+        let window = handle
+            .get_webview_window("main")
+            .ok_or_else(|| "Failed to get window")?;
+
+        let res = match theme.as_str() {
+            "dark" => window_vibrancy::apply_mica(&window, Some(true)),
+            "light" => window_vibrancy::apply_mica(&window, Some(false)),
+            _ => window_vibrancy::apply_mica(&window, None),
+        };
+
+        if let Err(err) = res {
+            error!("Error setting theme: {}", err);
+        }
+    }
+    Ok(())
+}
+
 async fn setup(handle: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = handle.path().temp_dir()?.join(DATA_DIR);
     fs::create_dir_all(&data_dir)?;
@@ -609,6 +631,7 @@ fn main() {
             validate_files,
             download_header,
             generate_ticket,
+            set_theme,
         ])
         .run(tauri::generate_context!())
         .expect("Error while running tauri application");
