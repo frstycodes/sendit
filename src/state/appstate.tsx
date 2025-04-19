@@ -1,4 +1,4 @@
-import { ValidatedFile } from '@/api/tauri'
+import { ValidatedFile } from '@/lib/tauri'
 import { createSelector } from '@/lib/zustand'
 import { MotionValue } from 'motion/react'
 import { create } from 'zustand'

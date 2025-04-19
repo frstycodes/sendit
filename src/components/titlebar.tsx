@@ -1,10 +1,10 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils'
 import { useRouter } from '@tanstack/react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { ChevronLeft, ChevronRight, Minus, X } from 'lucide-react'
-import { Button } from './button'
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
-import { CycleThemeButton } from '../toggle-theme'
+import { Button } from './ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import { CycleThemeButton } from './toggle-theme'
 
 const appWindow = getCurrentWindow()
 const WINDOW_BUTTONS = [

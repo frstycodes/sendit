@@ -1,16 +1,16 @@
-import { revealItemInDir } from '@/api/tauri'
-import { bytesToString, getFileIcon } from '@/lib/utils'
+import { revealItemInDir } from '@/lib/tauri/utils'
+import { bytesToString, getFileIcon } from '@/utils'
 import { DownloadQueueItem, UploadQueueItem } from '@/state/appstate'
 import { EllipsisVertical } from 'lucide-react'
 import { motion, MotionStyle } from 'motion/react'
-import { AnimatedCheckMark } from './animated-checkmark'
+import { AnimatedCheckMark } from '@/components/animated-checkmark'
 import { ProgressBar } from './progress-bar'
-import { Button } from './ui/button'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu'
 
 export type QueueItemProps = {
   item: UploadQueueItem | DownloadQueueItem

@@ -1,17 +1,18 @@
-import { api, listeners } from '@/api/tauri'
+import { listeners } from '@/lib/tauri/utils'
 import { Loader } from '@/components/loader'
-import { QueueContainer } from '@/components/queue-container'
-import { QueueItem } from '@/components/queue-item'
+import { QueueContainer } from './-components/queue-container'
+import { QueueItem } from './-components/queue-item'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import * as events from '@/config/events'
-import { Throttle } from '@/lib/utils'
+import * as events from '@/lib/tauri/events'
+import { Throttle } from '@/utils'
 import { AppState, DownloadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
 import { motion, motionValue } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
+import { api } from '@/lib/tauri'
 
 export const Route = createFileRoute('/_pages/receive')({
   component: ReceivePage,

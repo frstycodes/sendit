@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TitleBar } from '@/components/ui/titlebar'
+import { TitleBar } from '@/components/titlebar'
 
 export const Route = createRootRoute({
   component: RootComponent,

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn } from '@/utils'
 import { createFileRoute } from '@tanstack/react-router'
 import { Download, Send } from 'lucide-react'
 import { motion } from 'motion/react'

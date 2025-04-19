@@ -1,4 +1,4 @@
-import { bytesToString } from '@/lib/utils'
+import { bytesToString } from '@/utils'
 import { motion, MotionValue, useTransform } from 'motion/react'
 import { useEffect, useState } from 'react'
 

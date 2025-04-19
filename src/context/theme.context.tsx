@@ -1,4 +1,4 @@
-import { api } from '@/api/tauri'
+import { api } from '@/lib/tauri'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export type Theme = 'dark' | 'light' | 'system'

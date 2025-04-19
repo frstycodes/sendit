@@ -6,7 +6,7 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { ThemeProvider } from './context/theme.context'
 import { isWindows11 } from 'tauri-plugin-windows-version-api'
 import { PostHogProvider } from 'posthog-js/react'
-import { disableBrowserDefaultBehaviours } from './lib/utils'
+import { disableBrowserDefaultBehaviours } from '@/utils'
 import { posthogKeys } from './lib/post-hog'
 import { router } from './lib/tanstack-router'
 
