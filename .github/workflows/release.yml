@@ -56,6 +56,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
         with:
           tagName: ${{ github.ref_name }} # This action automatically replaces \_\_VERSION\_\_ with the release version
           releaseName: SendIt v__VERSION__
