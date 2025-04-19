@@ -15,6 +15,7 @@
     "clipboard-manager:allow-write-text",
     "opener:default",
     "opener:allow-reveal-item-in-dir",
-    "log:default"
+    "log:default",
+    "windows-version:default"
   ]
 }

@@ -5,16 +5,14 @@ import { Toaster } from './components/ui/sonner'
 import { TooltipProvider } from './components/ui/tooltip'
 import { ThemeProvider } from './context/theme.context'
 import { routeTree } from './routeTree.gen'
+import { isWindows11 } from 'tauri-plugin-windows-version-api'
 
-const os = navigator.userAgent.toLowerCase()
-const isWindows = os.includes('windows')
-
-if (isWindows) {
+// We use Mica effect for windows 11 so we need to set the background color to transparent
+if (await isWindows11()) {
   document.body.classList.add('windows')
 }
 
 const container = document.getElementById('root')
-
 const root = createRoot(container!)
 
 const router = createRouter({ routeTree })

@@ -6601,6 +6601,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-log",
  "tauri-plugin-opener",
+ "tauri-plugin-windows-version",
  "tokio",
  "tracing",
  "window-vibrancy 0.6.0",
@@ -7560,6 +7561,19 @@ dependencies = [
  "url",
  "windows 0.58.0",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-windows-version"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76a116b1451af25fab5649f53bc6d8192bb65238b5817c94ea4f5a55bc6725a8"
+dependencies = [
+ "serde",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.11",
+ "windows-version",
 ]
 
 [[package]]

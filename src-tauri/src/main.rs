@@ -573,6 +573,7 @@ fn main() {
                 .level(LevelFilter::Error)
                 .build(),
         )
+        .plugin(tauri_plugin_windows_version::init()) // WINDOWS VERSION
         .plugin(tauri_plugin_clipboard_manager::init()) // CLIPBOARD
         .plugin(tauri_plugin_dialog::init()) // DIALOG
         .plugin(tauri_plugin_opener::init()) // FILE OPENER
