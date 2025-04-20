@@ -30,51 +30,6 @@ function ReceivePage() {
     'removeFromDownloadQueue',
   )
 
-  useEffect(() => {
-    const throttle = new Throttle(1000)
-
-    const unsub = listeners({
-      [events.DOWNLOAD_FILE_ADDED]: (ev) => {
-        const item = ev.payload as events.DownloadFileAdded as DownloadQueueItem
-        item.progress = motionValue(0)
-        store.addToDownloadQueue(item)
-      },
-
-      [events.DOWNLOAD_FILE_PROGRESS]: (ev) => {
-        let { name, progress, speed } =
-          ev.payload as events.DownloadFileProgress
-        if (throttle.isFree(name)) {
-          store.updateDownloadQueueItemProgress(name, progress, speed)
-        }
-      },
-
-      [events.DOWNLOAD_FILE_COMPLETED]: (ev) => {
-        let { name } = ev.payload as events.DownloadFileCompleted
-        store.updateDownloadQueueItemProgress(name, 100, 0)
-      },
-
-      [events.DOWNLOAD_ALL_COMPLETE]: () => {
-        AppState.set({ isDownloading: false })
-      },
-
-      [events.DOWNLOAD_FILE_ERROR]: (ev) => {
-        let { name, error } = ev.payload as events.DownloadFileError
-        store.removeFromDownloadQueue(name)
-        toast.error(error, {
-          description: name,
-        })
-      },
-      [events.DOWNLOAD_FILE_ABORTED]: (ev) => {
-        let { name } = ev.payload as events.DownloadFileAborted
-        store.removeFromDownloadQueue(name)
-        toast('Download canceled', {
-          description: name,
-        })
-      },
-    })
-    return unsub
-  }, [])
-
   async function download() {
     const ticket = inputRef.current?.value
     if (!ticket) return
@@ -141,4 +96,54 @@ function ReceivePage() {
       </QueueContainer>
     </div>
   )
+}
+
+export function ReceivePageListeners() {
+  useEffect(() => {
+    const store = AppState.get()
+    const throttle = new Throttle(1000)
+
+    const unsub = listeners({
+      [events.DOWNLOAD_FILE_ADDED]: (ev) => {
+        const item = ev.payload as events.DownloadFileAdded as DownloadQueueItem
+        item.progress = motionValue(0)
+        store.addToDownloadQueue(item)
+      },
+
+      [events.DOWNLOAD_FILE_PROGRESS]: (ev) => {
+        let { name, progress, speed } =
+          ev.payload as events.DownloadFileProgress
+        if (throttle.isFree(name)) {
+          store.updateDownloadQueueItemProgress(name, progress, speed)
+        }
+      },
+
+      [events.DOWNLOAD_FILE_COMPLETED]: (ev) => {
+        let { name, path } = ev.payload as events.DownloadFileCompleted
+        store.updateDownloadQueueItemPath(name, path)
+        store.updateDownloadQueueItemProgress(name, 100, 0)
+      },
+
+      [events.DOWNLOAD_ALL_COMPLETE]: () => {
+        AppState.set({ isDownloading: false })
+      },
+
+      [events.DOWNLOAD_FILE_ERROR]: (ev) => {
+        let { name, error } = ev.payload as events.DownloadFileError
+        store.removeFromDownloadQueue(name)
+        toast.error(error, {
+          description: name,
+        })
+      },
+      [events.DOWNLOAD_FILE_ABORTED]: (ev) => {
+        let { name } = ev.payload as events.DownloadFileAborted
+        store.removeFromDownloadQueue(name)
+        toast('Download canceled', {
+          description: name,
+        })
+      },
+    })
+    return unsub
+  }, [])
+  return <></>
 }

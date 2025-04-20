@@ -12,12 +12,12 @@ export function AnimatedCheckMark({
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger>
+      <TooltipTrigger asChild>
         <div
-          className='duration-100 animate-in zoom-in-0'
+          className='animate-in zoom-in-0 duration-100'
           style={{ willChange: 'transform' }} // Optimize browser rendering
         >
-          <Check className='size-3! rounded-full bg-emerald-500 stroke-[6px] p-0.5 text-muted' />
+          <Check className='text-muted size-3! rounded-full bg-emerald-500 stroke-[6px] p-0.5' />
         </div>
       </TooltipTrigger>
       {!!tooltipContent && <TooltipContent>{tooltipContent}</TooltipContent>}

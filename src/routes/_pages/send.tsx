@@ -11,6 +11,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { Plus, Ticket, Trash, Trash2 } from 'lucide-react'
 import { motion, motionValue } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_pages/send')({
   component: SendPage,
@@ -29,85 +30,17 @@ function SendPage() {
   const dragging = store.uploadDraggedItems.length > 0
 
   useEffect(() => {
-    const throttle = new Throttle(32)
-
-    const unsub = listeners({
-      [events.UPLOAD_FILE_ADDED]: (event) => {
-        /*  We are clearing this here to prevent the empty message to flicker after drag-drop
-         event when the items are cleared and until the file is received from backend. */
-        const item = event.payload as events.UploadFileAdded as UploadQueueItem
-        item.progress = motionValue(0)
-        const queue = AppState.get().uploadQueue
-        if (item.name in queue) return
-        store.addToUploadQueue(item)
-      },
-
-      [events.UPLOAD_FILE_PROGRESS]: (event) => {
-        if (throttle.isFree()) {
-          const file = event.payload as events.UploadFileProgress
-          store.updateUploadQueueItemProgress(file.path, file.progress)
-        }
-      },
-
-      [events.UPLOAD_FILE_COMPLETED]: (event) => {
-        const { name } = event.payload as events.UploadFileCompleted
-        store.updateUploadQueueItemProgress(name, 100)
-      },
-
-      [events.UPLOAD_FILE_REMOVED]: (event) => {
-        const { name } = event.payload as events.UploadFileRemoved
-        store.removeFromUploadQueue(name)
-      },
-
-      'tauri://drag-enter': async (event) => {
-        let uploadQueueSet = new Set(
-          Object.values(AppState.get().uploadQueue).map((i) => i.name),
-        )
-        const paths = event.payload.paths as string[]
-
-        const filesRes = await api.validateFiles(paths)
-        if (filesRes.isErr()) return
-
-        const files = filesRes.value.filter(
-          (file) => !uploadQueueSet.has(file.name),
-        )
-
-        AppState.set({ uploadDraggedItems: files })
-        scrollAreaRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-      },
-
-      'tauri://drag-leave': () => {
-        AppState.set({ uploadDraggedItems: [] })
-      },
-
-      'tauri://drag-drop': async () => {
-        const store = AppState.get()
-        let newQueue: Record<string, UploadQueueItem> = {}
-
-        for (const file of store.uploadDraggedItems.reverse()) {
-          newQueue[file.name] = {
-            ...file,
-            progress: motionValue(0),
-            speed: 0,
-            done: false,
-          }
-          api.addFile(file.path)
-        }
-        newQueue = { ...newQueue, ...store.uploadQueue }
-        AppState.set({
-          uploadDraggedItems: [],
-          uploadQueue: newQueue,
-        })
-      },
+    if (!dragging) return
+    scrollAreaRef.current?.scrollTo({
+      top: 0,
+      behavior: 'smooth',
     })
-
-    return unsub
-  }, [])
+  }, [dragging])
 
   async function addFilesFromDialog() {
     const paths = await open({ multiple: true })
     if (!paths) return
-    for (const path of paths) api.addFile(path)
+    api.addFiles(paths)
   }
 
   const queueSize = Object.values(store.uploadQueue).length
@@ -151,7 +84,6 @@ function SendPage() {
           const queueItem: UploadQueueItem = {
             ...item,
             progress: motionValue(0),
-            speed: 0,
             done: false,
           }
           return (
@@ -216,4 +148,98 @@ function CopyTicketButton() {
       </span>
     </Button>
   )
+}
+
+export function SendPageListeners() {
+  useEffect(() => {
+    const isSendPage = () => window.location.pathname.startsWith('/send')
+    const store = AppState.get()
+    const throttle = new Throttle(32)
+
+    const unsub = listeners({
+      [events.UPLOAD_FILE_ADDED]: (event) => {
+        /*  We are clearing this here to prevent the empty message to flicker after drag-drop
+         event when the items are cleared and until the file is received from backend. */
+        const item = event.payload as events.UploadFileAdded as UploadQueueItem
+        item.progress = motionValue(0)
+        const queue = AppState.get().uploadQueue
+        if (item.name in queue) return
+        store.addToUploadQueue(item)
+      },
+
+      [events.UPLOAD_FILE_PROGRESS]: (event) => {
+        const file = event.payload as events.UploadFileProgress
+        if (throttle.isFree(file.path)) {
+          store.updateUploadQueueItemProgress(file.path, file.progress)
+        }
+      },
+
+      [events.UPLOAD_FILE_COMPLETED]: (event) => {
+        const { name } = event.payload as events.UploadFileCompleted
+        store.updateUploadQueueItemProgress(name, 100)
+      },
+
+      [events.UPLOAD_FILE_REMOVED]: (event) => {
+        const { name } = event.payload as events.UploadFileRemoved
+        store.removeFromUploadQueue(name)
+      },
+
+      [events.UPLOAD_FILE_ERROR]: (event) => {
+        const { name, error } = event.payload as events.UploadFileError
+        store.removeFromUploadQueue(name)
+        toast.error(error, {
+          description: name,
+        })
+      },
+
+      'tauri://drag-enter': async (event) => {
+        if (!isSendPage()) return
+        let uploadQueueSet = new Set(
+          Object.values(AppState.get().uploadQueue).map((i) => i.name),
+        )
+        const paths = event.payload.paths as string[]
+
+        const filesRes = await api.validateFiles(paths)
+        if (filesRes.isErr()) return
+
+        const files = filesRes.value.filter(
+          (file) => !uploadQueueSet.has(file.name),
+        )
+
+        AppState.set({ uploadDraggedItems: files })
+      },
+
+      'tauri://drag-leave': () => {
+        AppState.set({ uploadDraggedItems: [] })
+      },
+
+      'tauri://drag-drop': async () => {
+        if (!isSendPage()) return
+        const store = AppState.get()
+        let newQueue: Record<string, UploadQueueItem> = {}
+
+        let paths = []
+        for (const file of store.uploadDraggedItems.reverse()) {
+          newQueue[file.name] = {
+            ...file,
+            progress: motionValue(0),
+            done: false,
+          }
+          paths.push(file.path)
+        }
+
+        api.addFiles(paths)
+
+        newQueue = { ...newQueue, ...store.uploadQueue }
+        AppState.set({
+          uploadDraggedItems: [],
+          uploadQueue: newQueue,
+        })
+      },
+    })
+
+    return unsub
+  }, [])
+
+  return <></>
 }

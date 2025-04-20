@@ -3,17 +3,17 @@ import { createSelector } from '@/lib/zustand'
 import { MotionValue } from 'motion/react'
 import { create } from 'zustand'
 
-export type DownloadQueueItem = {
+export type UploadQueueItem = {
   name: string
   icon: string
   size: number
   progress: MotionValue<number>
-  speed: number
   done: boolean
+  path: string
 }
 
-export type UploadQueueItem = DownloadQueueItem & {
-  path: string
+export type DownloadQueueItem = UploadQueueItem & {
+  speed: number
 }
 
 type AppState = {
@@ -36,6 +36,7 @@ type AppState = {
     speed: number,
   ) => void
 
+  updateDownloadQueueItemPath: (name: string, path: string) => void
   clearDownloadQueue: () => void
 }
 
@@ -106,6 +107,18 @@ const store = create<AppState>((set, get) => ({
     }))
   },
 
+  updateDownloadQueueItemPath: (filename: string, path: string) => {
+    const entry = get().downloadQueue[filename]
+    return set((state) => ({
+      downloadQueue: {
+        ...state.downloadQueue,
+        [filename]: {
+          ...entry,
+          path,
+        },
+      },
+    }))
+  },
   clearDownloadQueue: () => set({ downloadQueue: {} }),
 }))
 

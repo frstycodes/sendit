@@ -93,7 +93,11 @@ export function QueueItem({
       </motion.div>
 
       {showProgress && !item.done && (
-        <ProgressBar showPercentage progress={progress} speed={item.speed} />
+        <ProgressBar
+          showPercentage
+          progress={progress}
+          speed={(item as any).speed}
+        />
       )}
     </motion.div>
   )

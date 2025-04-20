@@ -1,5 +1,4 @@
 import { RouterProvider } from '@tanstack/react-router'
-import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { Toaster } from './components/ui/sonner'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -9,6 +8,7 @@ import { PostHogProvider } from 'posthog-js/react'
 import { disableBrowserDefaultBehaviours } from '@/utils'
 import { posthogKeys } from './lib/post-hog'
 import { router } from './lib/tanstack-router'
+import React from 'react'
 
 // MICA SETUP: We use Mica effect for windows 11 so we need to set the background color to transparent
 isWindows11().then((res) => res && document.body.classList.add('mica'))

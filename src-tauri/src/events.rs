@@ -26,6 +26,7 @@ pub struct DownloadFileProgress {
 #[derive(Debug, Clone, Serialize)]
 pub struct DownloadFileCompleted {
     pub name: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,6 +46,8 @@ pub const UPLOAD_FILE_ADDED: &str = "UPLOAD_FILE_ADDED";
 pub const UPLOAD_FILE_PROGRESS: &str = "UPLOAD_FILE_PROGRESS";
 pub const UPLOAD_FILE_COMPLETED: &str = "UPLOAD_FILE_COMPLETED";
 pub const UPLOAD_FILE_REMOVED: &str = "UPLOAD_FILE_REMOVED";
+#[allow(unused)]
+pub const UPLOAD_FILE_ERROR: &str = "UPLOAD_FILE_ERROR";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct UploadFileAdded {
@@ -68,6 +71,12 @@ pub struct UploadFileRemoved {
 #[derive(Debug, Clone, Serialize)]
 pub struct UploadFileCompleted {
     pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UploadFileError {
+    pub name: String,
+    pub error: String,
 }
 
 // REMOVE_FILE

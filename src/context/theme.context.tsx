@@ -46,7 +46,7 @@ export function ThemeProvider({
 
   function getResolvedTheme(): ResolvedTheme {
     const storedTheme = getThemeFromStorage()
-    if (storedTheme != 'system') return storedTheme || defaultTheme
+    if (storedTheme == 'light' || storedTheme == 'dark') return storedTheme
     return DARK_MODE_MEDIA.matches ? 'dark' : 'light'
   }
 
@@ -58,7 +58,10 @@ export function ThemeProvider({
       changeRootTheme(theme)
       return
     }
-    console.log('test')
+
+    const systemTheme = DARK_MODE_MEDIA.matches ? 'dark' : 'light'
+    changeRootTheme(systemTheme)
+
     const onThemeChanged = (event: MediaQueryListEvent) => {
       const systemTheme = event.matches ? 'dark' : 'light'
       changeRootTheme(systemTheme)

@@ -36,22 +36,12 @@ impl Files {
         Files(HashMap::new())
     }
 
-    pub fn entries(&self) -> &HashMap<String, File> {
-        &self.0
-    }
-
     pub fn get(&self, name: &str) -> Option<&File> {
         self.0.get(name)
     }
 
-    pub fn add_file(&mut self, name: String, icon: String, size: u64, hash: Hash) {
-        let file = File {
-            name: name.clone(),
-            icon,
-            size,
-            hash,
-        };
-        self.0.insert(name, file);
+    pub fn add_file(&mut self, file: File) {
+        self.0.insert(file.name.clone(), file);
     }
 
     pub fn remove_file(&mut self, name: &str) {
@@ -93,7 +83,13 @@ impl From<String> for Files {
                 let icon = parts[1].to_string();
                 let size = parts[2].parse().unwrap_or(0);
                 let hash = Hash::from_str(parts[3]).unwrap_or_else(|_| Hash::EMPTY);
-                files.add_file(name, icon, size, hash);
+                let file = File {
+                    name: name.clone(),
+                    icon: icon.clone(),
+                    size,
+                    hash,
+                };
+                files.add_file(file);
             }
         }
 

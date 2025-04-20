@@ -9,10 +9,11 @@ use image::{DynamicImage, RgbaImage};
 use iroh_blobs::ticket::BlobTicket;
 use tauri::{AppHandle, Manager};
 
-use crate::BlobsClient;
+use crate::iroh::BlobsClient;
 
-pub fn file_name_from_path(path: &PathBuf) -> Result<String, String> {
+pub fn file_name_from_path(path: impl AsRef<Path>) -> Result<String, String> {
     let name = path
+        .as_ref()
         .file_name()
         .ok_or("Failed to get file name")?
         .to_string_lossy()
@@ -115,8 +116,9 @@ pub async fn download_and_read_header(
     blobs: &BlobsClient,
     ticket: BlobTicket,
 ) -> Result<String, String> {
+    let (node_addr, hash, _) = ticket.into_parts();
     blobs
-        .download(ticket.hash(), ticket.node_addr().clone())
+        .download(hash.clone(), node_addr)
         .await
         .map_err(|e| format!("Failed to download header file: {}", e))?
         .finish()
@@ -124,10 +126,28 @@ pub async fn download_and_read_header(
         .map_err(|e| format!("Failed to finish downloading header file: {}", e))?;
 
     let bytes = blobs
-        .read_to_bytes(ticket.hash())
+        .read_to_bytes(hash)
         .await
         .map_err(|e| format!("Failed to read bytes: {}", e))?;
 
-    String::from_utf8(bytes.to_vec())
-        .map_err(|e| format!("Failed to convert bytes to string: {}", e))
+    let res = String::from_utf8(bytes.to_vec())
+        .map_err(|e| format!("Failed to convert bytes to string: {}", e))?;
+
+    Ok(res)
+}
+
+use crate::iroh::Iroh;
+#[allow(dead_code)]
+pub async fn setup_temp_iroh(suffix: &str, app: &AppHandle) -> Result<Iroh, String> {
+    let data_dir = app
+        .path()
+        .download_dir()
+        .map_err(|e| format!("Failed to get temp dir: {:?}", e))?
+        .join(format!("sendit-{suffix}"));
+
+    let iroh = Iroh::new(data_dir)
+        .await
+        .map_err(|e| format!("Failed to initialize iroh: {}", e))?;
+
+    Ok(iroh)
 }

@@ -26,6 +26,15 @@ export function addFile(path: string) {
 }
 
 /**
+ *
+ * @param paths - The paths of the files to add.
+ * @returns - Array of Results
+ */
+export function addFiles(paths: string[]) {
+  return paths.map((path) => addFile(path))
+}
+
+/**
  * Remove a file.
  * @param path - The path of the file to remove.
  */
