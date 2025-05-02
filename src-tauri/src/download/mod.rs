@@ -1,8 +1,8 @@
+use log::{error, info, warn};
 use n0_future::stream::StreamExt;
 use std::str::FromStr;
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 use tauri::{AppHandle, Emitter, Listener, Manager};
-use tracing::{error, info, warn};
 
 use crate::state::AppState;
 use crate::{events, files, state::State, utils};
@@ -19,7 +19,6 @@ pub async fn download_header(
     ticket: String,
     handle: AppHandle,
 ) -> Result<(), String> {
-    println!("Downloading with ticket: {}", ticket);
     info!("Downloading with ticket: {}", ticket);
     let handle = Arc::new(handle);
     let export_dir = Arc::new(utils::get_download_dir(&handle)?);
@@ -34,9 +33,10 @@ pub async fn download_header(
     let header_content = utils::download_and_read_header(&blobs, ticket).await?;
 
     let handles = std::sync::Mutex::new(HashMap::new());
-    let mut tasks = Vec::new();
+    let mut files = files::Files::from_str(header_content.as_str())?;
+    let mut tasks = Vec::with_capacity(files.len());
 
-    for (_, file) in files::Files::from(header_content).drain() {
+    for (_, file) in files.drain() {
         let payload = events::DownloadFileAdded {
             name: file.name.clone(),
             icon: file.icon.clone(),
@@ -50,7 +50,6 @@ pub async fn download_header(
         let filename = file.name.clone();
         let remote_node_addr = remote_node_addr.clone();
 
-        println!("REACHED4");
         // Spawn a new task for each file download
         let task = tokio::spawn(async move {
             let name = file.name.clone();
@@ -76,7 +75,6 @@ pub async fn download_header(
     let handle_for_listener = Arc::clone(&handle);
     let listener = handle.listen(events::CANCEL_DOWNLOAD, move |event| {
         let filename = event.payload().replace("\"", ""); // Remove quotes
-        println!("Removing file: {}", filename);
         if let Ok(mut handles) = handles.lock() {
             if let Some(handle) = handles.remove(&filename) {
                 handle.abort();

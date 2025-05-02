@@ -4,9 +4,15 @@ use std::{
     str::FromStr,
 };
 
+use base64::{engine::general_purpose, Engine};
 use iroh_blobs::Hash;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+use crate::iroh::GossipTicket;
+
+const VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct File {
     pub name: String,
     pub icon: String,
@@ -14,91 +20,79 @@ pub struct File {
     pub hash: Hash,
 }
 
-#[derive(Debug, Clone)]
-pub struct Files(HashMap<String, File>);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Files {
+    pub version: u32,
+    pub gossip_ticket: GossipTicket,
+    pub files: HashMap<String, File>,
+}
 
 impl Deref for Files {
     type Target = HashMap<String, File>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.files
     }
 }
 
 impl DerefMut for Files {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.files
     }
 }
 
 impl Files {
-    pub fn new() -> Self {
-        Files(HashMap::new())
-    }
-
-    pub fn get(&self, name: &str) -> Option<&File> {
-        self.0.get(name)
+    pub fn new(ticket: GossipTicket) -> Self {
+        Self {
+            version: VERSION,
+            gossip_ticket: ticket,
+            files: HashMap::new(),
+        }
     }
 
     pub fn add_file(&mut self, file: File) {
-        self.0.insert(file.name.clone(), file);
+        self.files.insert(file.name.clone(), file);
     }
 
     pub fn remove_file(&mut self, name: &str) {
-        self.0.remove(name);
+        self.files.remove(name);
     }
 
     pub fn has_file(&self, name: &str) -> bool {
-        self.0.contains_key(name)
+        self.files.contains_key(name)
     }
 
-    pub fn clear(&mut self) {
-        self.0.clear();
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("Infallible")
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        serde_json::from_slice(bytes).map_err(|e| format!("Failed to parse bytes: {}", e))
     }
 }
 
 impl ToString for Files {
     fn to_string(&self) -> String {
-        let mut str = String::new();
+        let mut text = general_purpose::STANDARD.encode(&self.to_bytes());
+        text.make_ascii_lowercase();
+        format!("")
+    }
+}
 
-        for (_, file) in &self.0 {
-            str.push_str(&format!(
-                "{}\0{}\0{}\0{}\n",
-                file.name, file.icon, file.size, file.hash
+impl FromStr for Files {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = general_purpose::STANDARD
+            .decode(s.as_bytes())
+            .map_err(|e| format!("Failed to decode base64: {}", e))?;
+        let files = Self::from_bytes(&bytes)?;
+
+        if files.version != VERSION {
+            return Err(format!(
+                "Version mismatch: expected {}, got {}",
+                VERSION, files.version
             ));
         }
-
-        str
-    }
-}
-
-impl From<String> for Files {
-    fn from(value: String) -> Self {
-        let mut files = Files::new();
-
-        for line in value.lines() {
-            let parts: Vec<&str> = line.split('\0').collect();
-            if parts.len() == 4 {
-                let name = parts[0].to_string();
-                let icon = parts[1].to_string();
-                let size = parts[2].parse().unwrap_or(0);
-                let hash = Hash::from_str(parts[3]).unwrap_or_else(|_| Hash::EMPTY);
-                let file = File {
-                    name: name.clone(),
-                    icon: icon.clone(),
-                    size,
-                    hash,
-                };
-                files.add_file(file);
-            }
-        }
-
-        files
-    }
-}
-
-impl From<&str> for Files {
-    fn from(value: &str) -> Self {
-        Files::from(value.to_string())
+        Ok(files)
     }
 }
