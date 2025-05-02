@@ -1,5 +1,5 @@
 use crate::state::State;
-use tracing::info;
+use log::info;
 
 #[tauri::command]
 pub async fn generate_ticket(state: State<'_>) -> Result<String, String> {
