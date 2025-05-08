@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use base64::{engine::general_purpose, Engine};
 use iroh_blobs::Hash;
 use serde::{Deserialize, Serialize};
 
@@ -23,8 +22,8 @@ pub struct File {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Files {
     pub version: u32,
-    pub gossip_ticket: GossipTicket,
     pub files: HashMap<String, File>,
+    gossip_ticket: GossipTicket,
 }
 
 impl Deref for Files {
@@ -73,18 +72,19 @@ impl Files {
 
 impl ToString for Files {
     fn to_string(&self) -> String {
-        let mut text = general_purpose::STANDARD.encode(&self.to_bytes());
-        text.make_ascii_lowercase();
-        format!("")
+        let text = data_encoding::BASE32.encode(&self.to_bytes());
+        text
     }
 }
 
 impl FromStr for Files {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = general_purpose::STANDARD
+        println!("{s}");
+        let bytes = data_encoding::BASE32
             .decode(s.as_bytes())
-            .map_err(|e| format!("Failed to decode base64: {}", e))?;
+            .map_err(|e| format!("Failed to decode base32: {}", e))?;
+
         let files = Self::from_bytes(&bytes)?;
 
         if files.version != VERSION {
