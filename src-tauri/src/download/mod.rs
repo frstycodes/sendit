@@ -1,3 +1,4 @@
+use iroh_gossip::net::GossipReceiver;
 use log::{error, info, warn};
 use n0_future::stream::StreamExt;
 use std::str::FromStr;
@@ -13,6 +14,10 @@ use iroh_blobs::{
     ticket::BlobTicket,
 };
 
+pub async fn subscribe_upload_progress(rx: GossipReceiver) {
+    todo!("Need implementation details")
+}
+
 #[tauri::command]
 pub async fn download_header(
     state: State<'_>,
@@ -22,7 +27,12 @@ pub async fn download_header(
     info!("Downloading with ticket: {}", ticket);
     let handle = Arc::new(handle);
     let export_dir = Arc::new(utils::get_download_dir(&handle)?);
-    let iroh = state.iroh();
+
+    let iroh = match cfg!(debug_assertions) {
+        true => &state.iroh_debug,
+        false => state.iroh(),
+    };
+
     let blobs = &iroh.blobs;
 
     let ticket =
@@ -117,7 +127,12 @@ async fn download_file(
 ) -> Result<(), String> {
     info!("Started downloading file: {}", file.name);
     let state = handle.state::<AppState>();
-    let iroh = state.iroh();
+
+    let iroh = match cfg!(debug_assertions) {
+        true => &state.iroh_debug,
+        false => state.iroh(),
+    };
+
     let blobs = &iroh.blobs;
 
     let dest = export_dir.join(&file.name);

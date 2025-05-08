@@ -16,44 +16,35 @@ use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 use tracing::{error, info};
 
-const DATA_DIR: &str = "sendit";
+const DATA_DIR: &str = ".sendit";
+#[cfg(debug_assertions)]
+const DATA_DIR_DEBUG: &str = ".sendit-test";
 
-async fn setup(handle: tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let data_dir = handle.path().temp_dir()?.join(DATA_DIR);
-    println!("Data directory created at: {}", data_dir.display());
+async fn setup(handle: tauri::AppHandle) -> anyhow::Result<()> {
+    let download_dir = handle.path().download_dir()?.join("sendit");
+
+    let data_dir = download_dir.join(DATA_DIR);
     fs::create_dir_all(&data_dir)?;
     info!("Data directory created at: {}", data_dir.display());
 
-    let iroh = iroh::Iroh::new(data_dir).await?;
-    handle.manage(state::AppState::new(iroh));
+    let mut iroh = iroh::Iroh::new(data_dir).await?;
+    let channel = &mut iroh.gossip.channel_mut();
+    #[allow(unused)]
+    let rx = channel.take_receiver()?;
 
-    Ok(())
-}
+    #[cfg(debug_assertions)]
+    let iroh_debug = {
+        let data_dir = download_dir.join(DATA_DIR_DEBUG);
+        fs::create_dir_all(&data_dir)?;
+        info!(
+            "Data directory for debug created at: {}",
+            data_dir.display()
+        );
 
-#[tauri::command]
-async fn clean_up(state: state::State<'_>, handle: tauri::AppHandle) -> Result<(), String> {
-    let data_dir = handle
-        .path()
-        .temp_dir()
-        .map_err(|e| format!("Failed to get temp dir: {:?}", e))?
-        .join(DATA_DIR);
+        iroh::Iroh::new(data_dir).await?
+    };
 
-    info!("Cleaning up data directory: {:?}", data_dir.display());
-
-    fs::remove_dir_all(data_dir.clone())
-        .map_err(|e| format!("Failed to remove data dir: {:?}", e))?;
-
-    state
-        .iroh()
-        .shutdown()
-        .await
-        .map_err(|e| format!("Failed to shutdown iroh: {:?}", e))?;
-
-    let iroh = iroh::Iroh::new(data_dir)
-        .await
-        .map_err(|e| format!("Failed to create iroh instance: {:?}", e))?;
-
-    handle.manage(state::AppState::new(iroh));
+    handle.manage(state::AppState::new(iroh, iroh_debug));
 
     Ok(())
 }
@@ -62,7 +53,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
-                .targets([
+                .targets(vec![
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::Webview),
                 ])
@@ -99,7 +90,6 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            clean_up,
             file_operations::add_file,
             file_operations::remove_file,
             file_operations::remove_all_files,
