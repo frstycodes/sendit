@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use base64::{engine::general_purpose, Engine};
+use data_encoding::BASE64;
 use file_icon_provider::get_file_icon as get_file_icon_pkg;
 use image::{DynamicImage, RgbaImage};
 use iroh_blobs::ticket::BlobTicket;
@@ -65,8 +65,10 @@ pub fn get_file_icon(path: impl AsRef<Path>) -> Result<String, String> {
         .write_to(&mut cursor, image::ImageFormat::Png)
         .map_err(|e| format!("Failed to encode image to PNG: {}", e))?;
 
-    let encoder = general_purpose::STANDARD;
-    let png_string = format!("data:image/png;base64,{}", encoder.encode(png_data));
+    let png_string = format!(
+        "data:image/png;base64,{}",
+        BASE64.encode(png_data.as_slice())
+    );
     Ok(png_string)
 }
 
