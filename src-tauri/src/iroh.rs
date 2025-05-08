@@ -1,9 +1,11 @@
 use std::{ops::Deref, path::PathBuf, str::FromStr};
 
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine};
 use iroh::{protocol::Router, NodeAddr, NodeId};
-use iroh_gossip::{net::Gossip, proto::TopicId};
+use iroh_gossip::{
+    net::{Gossip, GossipReceiver, GossipSender},
+    proto::TopicId,
+};
 use quic_rpc::transport::flume::FlumeConnector;
 use serde::{Deserialize, Serialize};
 
@@ -36,23 +38,26 @@ impl GossipTicket {
 impl FromStr for GossipTicket {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self> {
-        let bytes = general_purpose::STANDARD.decode(s.to_ascii_uppercase().as_bytes())?;
+        let bytes = data_encoding::BASE32
+            .decode(s.as_bytes())
+            .map_err(|_| anyhow::anyhow!("Invalid base32 string"))?;
         Self::from_bytes(&bytes)
     }
 }
 
 impl ToString for GossipTicket {
     fn to_string(&self) -> String {
-        let mut text = general_purpose::STANDARD.encode(&self.to_bytes());
+        let mut text = data_encoding::BASE32.encode(&self.to_bytes());
         text.make_ascii_lowercase();
         text
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct GossipClient {
     pub client: Gossip,
-    pub ticket: GossipTicket,
+    ticket: GossipTicket,
+    channel: GossipChannel,
 }
 
 impl Deref for GossipClient {
@@ -67,10 +72,25 @@ impl GossipClient {
     pub async fn new(gossip: Gossip, node_id: NodeId) -> Result<Self> {
         let topic_id = TopicId::from_bytes(rand::random());
         let ticket = GossipTicket::new(topic_id, node_id);
+        let (sender, receiver) = gossip.subscribe(topic_id, vec![])?.split();
+        let gossip_chan = GossipChannel {
+            sender,
+            receiver: Some(receiver),
+        };
+
         Ok(Self {
             client: gossip,
             ticket,
+            channel: gossip_chan,
         })
+    }
+
+    pub fn channel(&self) -> &GossipChannel {
+        &self.channel
+    }
+
+    pub fn channel_mut(&mut self) -> &mut GossipChannel {
+        &mut self.channel
     }
 
     pub fn ticket(&self) -> &GossipTicket {
@@ -78,7 +98,29 @@ impl GossipClient {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+pub struct GossipChannel {
+    sender: GossipSender,
+    receiver: Option<GossipReceiver>,
+}
+
+impl Deref for GossipChannel {
+    type Target = GossipSender;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sender
+    }
+}
+
+impl GossipChannel {
+    pub fn take_receiver(&mut self) -> Result<GossipReceiver> {
+        self.receiver
+            .take()
+            .ok_or(anyhow::anyhow!("Receiver already taken"))
+    }
+}
+
+#[derive(Debug)]
 pub struct Iroh {
     #[allow(dead_code)]
     router: Router,
