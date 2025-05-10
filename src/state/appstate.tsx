@@ -1,4 +1,5 @@
 import { ValidatedFile } from '@/lib/tauri'
+import { User } from '@/lib/tauri/api'
 import { createSelector } from '@/lib/zustand'
 import { MotionValue } from 'motion/react'
 import { create } from 'zustand'
@@ -17,13 +18,14 @@ export type DownloadQueueItem = UploadQueueItem & {
 }
 
 type AppState = {
+  user: User | null
   isDownloading: boolean
 
   downloadQueue: Record<string, DownloadQueueItem>
   uploadQueue: Record<string, UploadQueueItem>
   uploadDraggedItems: ValidatedFile[]
 
-  addToUploadQueue: (file: UploadQueueItem) => void
+  addToUploadQueue: (files: UploadQueueItem[]) => void
   addToDownloadQueue: (file: DownloadQueueItem) => void
 
   removeFromDownloadQueue: (fileName: string) => void
@@ -38,9 +40,11 @@ type AppState = {
 
   updateDownloadQueueItemPath: (name: string, path: string) => void
   clearDownloadQueue: () => void
+  reorderUploadQueue: () => void
 }
 
 const store = create<AppState>((set, get) => ({
+  user: null,
   isDownloading: false,
 
   downloadQueue: {},
@@ -52,10 +56,14 @@ const store = create<AppState>((set, get) => ({
       downloadQueue: { ...state.downloadQueue, [file.name]: file },
     })),
 
-  addToUploadQueue: (file: UploadQueueItem) =>
-    set((state) => ({
-      uploadQueue: { [file.name]: file, ...state.uploadQueue },
-    })),
+  addToUploadQueue: (files: UploadQueueItem[]) =>
+    set((s) => {
+      const queue = { ...s.uploadQueue }
+      for (const file of files) {
+        queue[file.name] = file
+      }
+      return { uploadQueue: queue }
+    }),
 
   removeFromDownloadQueue: (fileName: string) =>
     set((state) => {
@@ -120,6 +128,17 @@ const store = create<AppState>((set, get) => ({
     }))
   },
   clearDownloadQueue: () => set({ downloadQueue: {} }),
+
+  reorderUploadQueue: () => {
+    const uploadQueue = get().uploadQueue
+    const newQueue: Record<string, UploadQueueItem> = {}
+    Object.keys(uploadQueue)
+      .sort((a, b) => Number(uploadQueue[b].size) - Number(uploadQueue[a].size))
+      .forEach((key) => {
+        newQueue[key] = uploadQueue[key]
+      })
+    return set({ uploadQueue: newQueue })
+  },
 }))
 
 const use = createSelector(store)

@@ -91,3 +91,30 @@ export function abortDownload(name: string) {
 export function setTheme(theme: Theme) {
   return invoke<void>('set_theme', { theme })
 }
+
+export type User = {
+  name: string
+  avatar: number
+}
+
+/**
+ * Get User data
+ */
+export function getUser() {
+  return invoke<User>('get_user')
+}
+
+/**
+ * Set User Avatar
+ */
+export function updateUser(user: User) {
+  return invoke<User>('update_user', { user })
+}
+
+export function isOnboarded() {
+  return invoke<boolean>('is_onboarded')
+}
+
+export function appLoaded() {
+  return invoke<boolean>('app_loaded')
+}

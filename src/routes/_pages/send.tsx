@@ -4,7 +4,7 @@ import { QueueItem } from './-components/queue-item'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { events, api, copyText, listeners } from '@/lib/tauri'
-import { sleep, Throttle } from '@/utils'
+import { sleep, Throttle, ThrottledQueue } from '@/utils'
 import { AppState, UploadQueueItem } from '@/state/appstate'
 import { createFileRoute } from '@tanstack/react-router'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -155,6 +155,8 @@ export function SendPageListeners() {
     const isSendPage = () => window.location.pathname.startsWith('/send')
     const store = AppState.get()
     const throttle = new Throttle(32)
+    const uploadQ = new ThrottledQueue<UploadQueueItem>(10, 100)
+    uploadQ.onRelease(store.addToUploadQueue)
 
     const unsub = listeners({
       [events.UPLOAD_FILE_ADDED]: (event) => {
@@ -164,7 +166,7 @@ export function SendPageListeners() {
         item.progress = motionValue(0)
         const queue = AppState.get().uploadQueue
         if (item.name in queue) return
-        store.addToUploadQueue(item)
+        uploadQ.add(item)
       },
 
       [events.UPLOAD_FILE_PROGRESS]: (event) => {
@@ -176,6 +178,16 @@ export function SendPageListeners() {
 
       [events.UPLOAD_FILE_COMPLETED]: (event) => {
         const { name } = event.payload as events.UploadFileCompleted
+
+        // We mark the item as done here to prevent hanging, since these might
+        // get added to the queue after the import is complete in the background due
+        // to our throttling queue mechanism.
+        let item = uploadQ.find((i) => i.name == name)
+        if (item) {
+          item.done = true
+          return
+        }
+
         store.updateUploadQueueItemProgress(name, 100)
       },
 

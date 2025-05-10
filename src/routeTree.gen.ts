@@ -12,9 +12,11 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as PagesImport } from './routes/_pages'
-import { Route as IndexImport } from './routes/index'
+import { Route as PagesIndexImport } from './routes/_pages/index'
 import { Route as PagesSendImport } from './routes/_pages/send'
 import { Route as PagesReceiveImport } from './routes/_pages/receive'
+import { Route as PagesOnboardImport } from './routes/_pages/onboard'
+import { Route as PagesEditProfileImport } from './routes/_pages/edit-profile'
 
 // Create/Update Routes
 
@@ -23,10 +25,10 @@ const PagesRoute = PagesImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const IndexRoute = IndexImport.update({
+const PagesIndexRoute = PagesIndexImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => PagesRoute,
 } as any)
 
 const PagesSendRoute = PagesSendImport.update({
@@ -41,23 +43,42 @@ const PagesReceiveRoute = PagesReceiveImport.update({
   getParentRoute: () => PagesRoute,
 } as any)
 
+const PagesOnboardRoute = PagesOnboardImport.update({
+  id: '/onboard',
+  path: '/onboard',
+  getParentRoute: () => PagesRoute,
+} as any)
+
+const PagesEditProfileRoute = PagesEditProfileImport.update({
+  id: '/edit-profile',
+  path: '/edit-profile',
+  getParentRoute: () => PagesRoute,
+} as any)
+
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
     '/_pages': {
       id: '/_pages'
       path: ''
       fullPath: ''
       preLoaderRoute: typeof PagesImport
       parentRoute: typeof rootRoute
+    }
+    '/_pages/edit-profile': {
+      id: '/_pages/edit-profile'
+      path: '/edit-profile'
+      fullPath: '/edit-profile'
+      preLoaderRoute: typeof PagesEditProfileImport
+      parentRoute: typeof PagesImport
+    }
+    '/_pages/onboard': {
+      id: '/_pages/onboard'
+      path: '/onboard'
+      fullPath: '/onboard'
+      preLoaderRoute: typeof PagesOnboardImport
+      parentRoute: typeof PagesImport
     }
     '/_pages/receive': {
       id: '/_pages/receive'
@@ -73,61 +94,84 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PagesSendImport
       parentRoute: typeof PagesImport
     }
+    '/_pages/': {
+      id: '/_pages/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof PagesIndexImport
+      parentRoute: typeof PagesImport
+    }
   }
 }
 
 // Create and export the route tree
 
 interface PagesRouteChildren {
+  PagesEditProfileRoute: typeof PagesEditProfileRoute
+  PagesOnboardRoute: typeof PagesOnboardRoute
   PagesReceiveRoute: typeof PagesReceiveRoute
   PagesSendRoute: typeof PagesSendRoute
+  PagesIndexRoute: typeof PagesIndexRoute
 }
 
 const PagesRouteChildren: PagesRouteChildren = {
+  PagesEditProfileRoute: PagesEditProfileRoute,
+  PagesOnboardRoute: PagesOnboardRoute,
   PagesReceiveRoute: PagesReceiveRoute,
   PagesSendRoute: PagesSendRoute,
+  PagesIndexRoute: PagesIndexRoute,
 }
 
 const PagesRouteWithChildren = PagesRoute._addFileChildren(PagesRouteChildren)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '': typeof PagesRouteWithChildren
+  '/edit-profile': typeof PagesEditProfileRoute
+  '/onboard': typeof PagesOnboardRoute
   '/receive': typeof PagesReceiveRoute
   '/send': typeof PagesSendRoute
+  '/': typeof PagesIndexRoute
 }
 
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '': typeof PagesRouteWithChildren
+  '/edit-profile': typeof PagesEditProfileRoute
+  '/onboard': typeof PagesOnboardRoute
   '/receive': typeof PagesReceiveRoute
   '/send': typeof PagesSendRoute
+  '/': typeof PagesIndexRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
-  '/': typeof IndexRoute
   '/_pages': typeof PagesRouteWithChildren
+  '/_pages/edit-profile': typeof PagesEditProfileRoute
+  '/_pages/onboard': typeof PagesOnboardRoute
   '/_pages/receive': typeof PagesReceiveRoute
   '/_pages/send': typeof PagesSendRoute
+  '/_pages/': typeof PagesIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/receive' | '/send'
+  fullPaths: '' | '/edit-profile' | '/onboard' | '/receive' | '/send' | '/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/receive' | '/send'
-  id: '__root__' | '/' | '/_pages' | '/_pages/receive' | '/_pages/send'
+  to: '/edit-profile' | '/onboard' | '/receive' | '/send' | '/'
+  id:
+    | '__root__'
+    | '/_pages'
+    | '/_pages/edit-profile'
+    | '/_pages/onboard'
+    | '/_pages/receive'
+    | '/_pages/send'
+    | '/_pages/'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   PagesRoute: typeof PagesRouteWithChildren
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   PagesRoute: PagesRouteWithChildren,
 }
 
@@ -141,19 +185,26 @@ export const routeTree = rootRoute
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
-        "/",
         "/_pages"
       ]
-    },
-    "/": {
-      "filePath": "index.tsx"
     },
     "/_pages": {
       "filePath": "_pages.tsx",
       "children": [
+        "/_pages/edit-profile",
+        "/_pages/onboard",
         "/_pages/receive",
-        "/_pages/send"
+        "/_pages/send",
+        "/_pages/"
       ]
+    },
+    "/_pages/edit-profile": {
+      "filePath": "_pages/edit-profile.tsx",
+      "parent": "/_pages"
+    },
+    "/_pages/onboard": {
+      "filePath": "_pages/onboard.tsx",
+      "parent": "/_pages"
     },
     "/_pages/receive": {
       "filePath": "_pages/receive.tsx",
@@ -161,6 +212,10 @@ export const routeTree = rootRoute
     },
     "/_pages/send": {
       "filePath": "_pages/send.tsx",
+      "parent": "/_pages"
+    },
+    "/_pages/": {
+      "filePath": "_pages/index.tsx",
       "parent": "/_pages"
     }
   }
