@@ -11,7 +11,8 @@ import { api, getRandomElFromArray } from '@/lib/tauri'
 import { User } from '@/lib/tauri/api'
 import { AppState } from '@/state/appstate'
 import { ReactNode } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
+import { motion } from 'motion/react'
 import * as React from 'react'
 
 export const RAND_PREFIX_LIST = [
@@ -68,15 +69,19 @@ export function EditProfile({
   user?: User
 }) {
   const [user, setUser] = React.useState(prefillUser || defaultUser)
+  const [saveSuccess, setSaveSuccess] = React.useState(false)
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     const value = e.target.value
     setUser((prev) => ({ ...prev, name: value }))
   }
 
-  async function onSubmit() {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     const res = await api.updateUser(user)
     if (res.isOk()) {
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
       AppState.set({ user })
     }
   }
@@ -102,14 +107,32 @@ export function EditProfile({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <Input value={user.name} onChange={handleNameChange} />
-      <Button className='rounded-sm' onClick={onSubmit}>
-        {buttonLabel ?? (
-          <>
-            Get Started <ArrowRight />
-          </>
-        )}
-      </Button>
+      <form className='contents' onSubmit={onSubmit}>
+        <Input value={user.name} onChange={handleNameChange} />
+        <div className='flex w-full justify-center'>
+          <motion.div layout>
+            <Button className='rounded-sm'>
+              {saveSuccess && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
+                  className='flex items-center'
+                >
+                  <Check className='size-4 text-emerald-500' />
+                </motion.span>
+              )}
+              <motion.span layout='position'>
+                {buttonLabel ?? (
+                  <>
+                    Get Started <ArrowRight className='ml-1' />
+                  </>
+                )}
+              </motion.span>
+            </Button>
+          </motion.div>
+        </div>
+      </form>
     </div>
   )
 }

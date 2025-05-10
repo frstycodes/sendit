@@ -1,18 +1,18 @@
-import { listeners } from '@/lib/tauri/utils'
 import { Loader } from '@/components/loader'
-import { QueueContainer } from './-components/queue-container'
-import { QueueItem } from './-components/queue-item'
 import { Button } from '@/components/ui/button'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { api } from '@/lib/tauri'
 import * as events from '@/lib/tauri/events'
-import { Throttle } from '@/utils'
+import { listeners } from '@/lib/tauri/utils'
 import { AppState, DownloadQueueItem } from '@/state/appstate'
+import { Throttle } from '@/utils'
 import { createFileRoute } from '@tanstack/react-router'
 import { motion, motionValue } from 'motion/react'
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { api } from '@/lib/tauri'
+import { QueueContainer } from './-components/queue-container'
+import { QueueItem } from './-components/queue-item'
 
 export const Route = createFileRoute('/_pages/receive')({
   component: ReceivePage,
@@ -58,7 +58,11 @@ function ReceivePage() {
   return (
     <div className='flex flex-1 flex-col overflow-y-hidden'>
       <div className='mb-4 flex flex-col gap-2'>
-        <Input ref={inputRef} placeholder='Enter ticket' />
+        <Input
+          className='font-mono text-sm'
+          ref={inputRef}
+          placeholder='Enter ticket'
+        />
         <Button onClick={download}>
           {store.isDownloading && (
             <motion.div

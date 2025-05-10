@@ -21,7 +21,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(user: Option<User>, iroh: iroh::Iroh, iroh_debug: iroh::Iroh) -> Self {
+    pub fn new(
+        user: Option<User>,
+        iroh: iroh::Iroh,
+        #[cfg(debug_assertions)] iroh_debug: iroh::Iroh,
+    ) -> Self {
         let ticket = iroh.gossip.ticket().to_owned();
         Self {
             user: Mutex::new(user),

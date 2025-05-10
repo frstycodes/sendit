@@ -18,14 +18,17 @@ use tauri_plugin_log::{Target, TargetKind};
 use tokio::time;
 use tracing::{error, info};
 
-const DATA_DIR: &str = ".sendit";
+const DATA_DIR: &str = ".database";
 #[cfg(debug_assertions)]
-const DATA_DIR_DEBUG: &str = ".sendit-test";
+const DATA_DIR_DEBUG: &str = ".database-test";
 
 async fn setup(handle: tauri::AppHandle) -> anyhow::Result<()> {
-    let download_dir = handle.path().download_dir()?.join("sendit");
+    let app_data_dir = match cfg!(debug_assertions) {
+        true => handle.path().download_dir()?.join(".sendit"),
+        false => handle.path().app_local_data_dir()?,
+    };
 
-    let data_dir = download_dir.join(DATA_DIR);
+    let data_dir = app_data_dir.join(DATA_DIR);
     fs::create_dir_all(&data_dir)?;
     info!("Data directory created at: {}", data_dir.display());
 
@@ -36,7 +39,7 @@ async fn setup(handle: tauri::AppHandle) -> anyhow::Result<()> {
 
     #[cfg(debug_assertions)]
     let iroh_debug = {
-        let data_dir = download_dir.join(DATA_DIR_DEBUG);
+        let data_dir = app_data_dir.join(DATA_DIR_DEBUG);
         fs::create_dir_all(&data_dir)?;
         info!(
             "Data directory for debug created at: {}",

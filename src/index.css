@@ -132,6 +132,11 @@
     Poppins, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
+  --font-mono:
+    'Jetbrains Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono',
+    'Courier New', monospace, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+
   --color-background-gr-a: hsl(var(--background-gr-a));
   --color-background-gr-b: hsl(var(--background-gr-b));
   --color-secondary-gr-a: hsl(var(--secondary-gr-a));
@@ -145,6 +150,8 @@
   --color-secondary-border-gr-b: hsl(var(--secondary-border-gr-b));
 
   --shadow-rim: var(--shadow-rim);
+
+  --animate-spin-ease: spin 1s ease-in-out infinite;
 }
 
 @layer base {
