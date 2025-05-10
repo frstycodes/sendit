@@ -1,10 +1,27 @@
+import { avatars } from '@/assets/avatars'
+import { AppState } from '@/state/appstate'
 import { cn } from '@/utils'
-import { useRouter } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { ChevronLeft, ChevronRight, Minus, X } from 'lucide-react'
-import { Button } from './ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Minus,
+  Pen,
+  X,
+} from 'lucide-react'
 import { CycleThemeButton } from './toggle-theme'
+import { Button } from './ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 
 const appWindow = getCurrentWindow()
 const WINDOW_BUTTONS = [
@@ -27,9 +44,10 @@ export function TitleBar() {
       <div className='flex items-center'>
         <NavigationButton direction='back' />
         <NavigationButton direction='forward' />
-        <div className='ml-2 flex items-center'>
-          <CycleThemeButton />
-        </div>
+        <NavigationButton direction='home' />
+      </div>
+      <div className='ml-auto flex items-center'>
+        <UserButton />
       </div>
       <div className='flex'>
         {WINDOW_BUTTONS.map((item) => (
@@ -40,26 +58,84 @@ export function TitleBar() {
   )
 }
 
-type NavigationButtonProps = {
-  direction: 'forward' | 'back'
+function UserButton() {
+  const { user } = AppState.use('user')
+  if (!user) return null
+
+  const avatar = avatars[user.avatar]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant='default'
+          className='h-fit gap-1 border-none !bg-transparent p-0.5 px-1.5 text-xs shadow-none! select-none hover:bg-transparent'
+        >
+          <img src={avatar} className='size-4 rounded-full' />
+          <ChevronDown className='!size-3' />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <div className='flex items-center gap-2 px-2 py-2'>
+          <img src={avatar} className='h-6 w-6 rounded-full' />
+          <h1 className='text-sm font-medium'>{user.name}</h1>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className='cursor-pointer py-2' asChild>
+          <Link to='/edit-profile'>
+            <Pen className='size-4' /> Edit Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          asChild
+          onClick={(e) => e.preventDefault()}
+          className='cursor-pointer'
+        >
+          <CycleThemeButton className='aspect-auto h-full justify-start' />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
+
+type NavigationButtonProps = {
+  direction: 'forward' | 'back' | 'home'
+}
+
 function NavigationButton(props: NavigationButtonProps) {
   const router = useRouter()
-  const Icon = props.direction == 'back' ? ChevronLeft : ChevronRight
+
+  const iconMap = {
+    forward: ChevronRight,
+    back: ChevronLeft,
+    home: Home,
+  }
+  const labelMap = {
+    forward: 'Go forward',
+    back: 'Go back',
+    home: 'Go home',
+  }
+
+  const navigateFn = {
+    forward: () => router.history.forward(),
+    back: () => router.history.back(),
+    home: () => router.navigate({ to: '/' }),
+  }
+
+  const Icon = iconMap[props.direction]
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          onClick={() => router.history[props.direction]()}
+          onClick={navigateFn[props.direction]}
           variant='ghost'
           className='text-muted-foreground rounded-full p-1 px-0 hover:bg-transparent'
         >
-          <Icon className='size-6!' />
+          <Icon
+            className={props.direction == 'home' ? 'size-4.5!' : 'size-6!'}
+          />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>
-        {props.direction === 'forward' ? 'Go forward' : 'Go back'}
-      </TooltipContent>
+      <TooltipContent>{labelMap[props.direction]}</TooltipContent>
     </Tooltip>
   )
 }

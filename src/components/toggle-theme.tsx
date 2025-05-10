@@ -2,6 +2,7 @@ import { useTheme } from '@/context/theme.context'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { useRef } from 'react'
 import { Button } from './ui/button'
+import { cn } from '@/utils'
 
 const STATES = [
   { theme: 'system', icon: Monitor },
@@ -9,7 +10,7 @@ const STATES = [
   { theme: 'dark', icon: Moon },
 ]
 
-export function CycleThemeButton() {
+export function CycleThemeButton({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme()
   const currThemeIdx = useRef(
     STATES.findIndex((state) => state.theme === theme),
@@ -26,10 +27,13 @@ export function CycleThemeButton() {
     <Button
       onClick={cycleTheme}
       variant='ghost'
-      className='text-muted-foreground hover:text-foreground h-fit rounded-full p-0 hover:bg-transparent'
+      className={cn(
+        'text-foreground h-fit w-full p-0 hover:bg-transparent',
+        className,
+      )}
     >
       <currentTheme.icon className='size-4!' />
-      <span key={currentTheme.theme} className='text-xs capitalize'>
+      <span key={currentTheme.theme} className='capitalize'>
         {currentTheme.theme}
       </span>
     </Button>
