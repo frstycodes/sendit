@@ -11,9 +11,11 @@ mod ticket;
 mod utils;
 
 use log::LevelFilter;
-use std::fs;
-use tauri::Manager;
+use state::user_data::{self, User};
+use std::{fs, time::Duration};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_log::{Target, TargetKind};
+use tokio::time;
 use tracing::{error, info};
 
 const DATA_DIR: &str = ".sendit";
@@ -44,9 +46,21 @@ async fn setup(handle: tauri::AppHandle) -> anyhow::Result<()> {
         iroh::Iroh::new(data_dir).await?
     };
 
-    handle.manage(state::AppState::new(iroh, iroh_debug));
+    let cfg_path = utils::get_config_dir(&handle)
+        .map_err(|e| anyhow::anyhow!(e))?
+        .join(user_data::CONFIG_FILE_NAME);
+
+    let user = User::from_config(cfg_path).ok();
+    handle.manage(state::AppState::new(user, iroh, iroh_debug));
 
     Ok(())
+}
+
+pub fn notify_app_loaded(handle: AppHandle) {
+    tokio::spawn(async move {
+        time::sleep(Duration::from_millis(300)).await;
+        handle.emit(events::APP_LOADED, ()).ok();
+    });
 }
 
 fn main() {
@@ -81,9 +95,13 @@ fn main() {
                 }
             }
 
+            let handle_clone = handle.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(err) = setup(handle).await {
+                if let Err(err) = setup(handle_clone).await {
                     error!("Error setting up application: {}", err);
+                    return;
+                } else {
+                    notify_app_loaded(handle);
                 }
             });
 
@@ -97,6 +115,10 @@ fn main() {
             download::download_header,
             ticket::generate_ticket,
             theme::set_theme,
+            state::get_user,
+            state::update_user,
+            state::user_data::is_onboarded,
+            state::app_loaded
         ])
         .run(tauri::generate_context!())
         .expect("Error while running tauri application");

@@ -85,10 +85,6 @@ impl GossipClient {
         })
     }
 
-    pub fn channel(&self) -> &GossipChannel {
-        &self.channel
-    }
-
     pub fn channel_mut(&mut self) -> &mut GossipChannel {
         &mut self.channel
     }
@@ -161,14 +157,6 @@ impl Iroh {
             blobs,
             gossip,
         })
-    }
-
-    pub fn gossip(&self) -> &GossipClient {
-        &self.gossip
-    }
-
-    pub fn blobs(&self) -> &BlobsClient {
-        &self.blobs
     }
 
     #[allow(dead_code)]

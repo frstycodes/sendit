@@ -1,23 +1,30 @@
+use iroh_blobs::ticket::BlobTicket;
+use tauri::{AppHandle, Manager};
+use tokio::sync::{Mutex, MutexGuard};
+use user_data::User;
+
+pub mod user_data;
+
 use crate::files;
 use crate::iroh;
-use iroh_blobs::ticket::BlobTicket;
-use tokio::sync::{Mutex, MutexGuard};
 
 #[derive(Debug)]
 pub struct AppState {
     #[allow(unused)]
     #[cfg(debug_assertions)]
-    pub(crate) iroh_debug: iroh::Iroh,
+    pub iroh_debug: iroh::Iroh,
 
-    pub(crate) iroh: iroh::Iroh,
-    pub(crate) files: Mutex<files::Files>,
-    pub(crate) header_tickets: Mutex<Vec<BlobTicket>>,
+    pub user: Mutex<Option<User>>,
+    pub iroh: iroh::Iroh,
+    pub files: Mutex<files::Files>,
+    pub header_tickets: Mutex<Vec<BlobTicket>>,
 }
 
 impl AppState {
-    pub fn new(iroh: iroh::Iroh, iroh_debug: iroh::Iroh) -> Self {
+    pub fn new(user: Option<User>, iroh: iroh::Iroh, iroh_debug: iroh::Iroh) -> Self {
         let ticket = iroh.gossip.ticket().to_owned();
         Self {
+            user: Mutex::new(user),
             iroh_debug,
             iroh,
             files: Mutex::new(files::Files::new(ticket)),
@@ -35,3 +42,31 @@ impl AppState {
 }
 
 pub type State<'a> = tauri::State<'a, AppState>;
+
+#[tauri::command]
+pub async fn get_user(state: State<'_>) -> Result<Option<User>, String> {
+    let user = state.user.lock().await;
+    Ok(user.clone())
+}
+
+#[tauri::command]
+pub async fn update_user(state: State<'_>, user: User, app: AppHandle) -> Result<(), String> {
+    let cfg_path = crate::utils::get_config_dir(&app)?.join(user_data::CONFIG_FILE_NAME);
+
+    if let Err(e) = user.save(cfg_path) {
+        return Err(format!("Failed to save user data: {}", e));
+    }
+
+    let mut state_user = state.user.lock().await;
+    *state_user = Some(user);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn app_loaded(app: AppHandle) -> bool {
+    match app.try_state::<AppState>() {
+        None => false,
+        _ => true,
+    }
+}

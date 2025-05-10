@@ -30,6 +30,14 @@ pub fn get_download_dir(handle: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+pub fn get_config_dir(handle: &AppHandle) -> Result<PathBuf, String> {
+    let dir = handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|_| "Failed to get config directory")?;
+    Ok(dir)
+}
+
 pub struct Throttle {
     last_emit: Instant,
     interval: Duration,

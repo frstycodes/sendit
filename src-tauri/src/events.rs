@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+pub const APP_LOADED: &str = "APP_LOADED";
+
 // DOWNLOAD
 pub const DOWNLOAD_FILE_ADDED: &str = "DOWNLOAD_FILE_ADDED";
 pub const DOWNLOAD_FILE_PROGRESS: &str = "DOWNLOAD_FILE_PROGRESS";
