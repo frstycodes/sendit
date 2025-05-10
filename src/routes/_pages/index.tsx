@@ -40,18 +40,15 @@ const BUTTONS = {
   },
 }
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/_pages/')({
   component: RouteComponent,
 })
 
 function RouteComponent() {
   return (
-    <div className='animate-in slide-in-from-top-[10px] fade-in-0 duration-300 ease-out'>
-      <h1 className='text-3xl font-bold'>SendIt</h1>
-      <div className='flex flex-col justify-center gap-4 py-4'>
-        <AnimatedButton type='send' />
-        <AnimatedButton type='receive' />
-      </div>
+    <div className='flex flex-col justify-center gap-4 py-4'>
+      <AnimatedButton type='send' />
+      <AnimatedButton type='receive' />
     </div>
   )
 }
